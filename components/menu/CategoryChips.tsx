@@ -36,6 +36,7 @@ const categoryIconMap: Record<string, React.ReactNode> = {
   coffee: <MdLocalDrink className="w-5 h-5" />,
   tea: <MdLocalDrink className="w-5 h-5" />,
   soda: <MdLocalDrink className="w-5 h-5" />,
+  mojito: <MdLocalDrink className="w-5 h-5" />,
   food: <MdOutlineRestaurant className="w-5 h-5" />,
   meals: <MdOutlineRestaurant className="w-5 h-5" />,
   "main course": <MdOutlineRestaurant className="w-5 h-5" />,
