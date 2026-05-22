@@ -1,8 +1,10 @@
+// components/menu/CategoryChips.tsx
 "use client";
 
-import { useRef, useEffect } from "react";
+import { useRef, useCallback, type ComponentType } from "react";
 import { motion } from "framer-motion";
 import {
+
   MdFastfood,
   MdCake,
   MdLocalDrink,
@@ -34,6 +36,7 @@ import {
   MdEmojiFoodBeverage,
   MdEgg,
   MdEvent,
+
 } from "react-icons/md";
 
 interface Category {
@@ -41,6 +44,7 @@ interface Category {
   name: string;
   icon_key?: string | null;
 }
+
 
 const categoryIconMap: Record<string, React.ReactNode> = {
   all: <MdFastfood className="w-5 h-5" />,
@@ -182,44 +186,49 @@ function getCategoryIcon(cat: Category): React.ReactNode {
   return defaultIcon;
 }
 
-export default function CategoryChips({
-  categories,
-  selected,
-  onSelect,
-}: {
+interface Props {
   categories: Category[];
   selected: string | null;
   onSelect: (id: string | null) => void;
-}) {
-  const scrollRef = useRef<HTMLDivElement>(null);
+}
+
+export default function CategoryChips({ categories, selected, onSelect }: Props) {
+  const chipRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
+
 
   useEffect(() => {
     const el = scrollRef.current?.querySelector(
       `[data-category-id="${selected ?? "all"}"]`,
     );
     el?.scrollIntoView({
+
       behavior: "smooth",
       inline: "center",
       block: "nearest",
     });
+
   }, [selected]);
 
-  const allChips = [{ id: "all", name: "All", icon_key: "all" }, ...categories];
+
+  const chips = [ALL_CHIP, ...categories];
 
   return (
-    <div className="relative mx-4 my-2">
+    <div className="relative">
+      {/* Right fade — signals horizontal scroll without a scrollbar */}
+      <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-10 bg-gradient-to-l from-white to-transparent z-10" />
+
       <div
-        ref={scrollRef}
-        className="flex gap-4 md:gap-6 overflow-x-auto no-scrollbar py-3 px-2 snap-x snap-mandatory"
+        role="tablist"
+        aria-label="Menu categories"
+        className="flex gap-2 overflow-x-auto no-scrollbar px-4 py-3 snap-x snap-mandatory"
       >
-        {allChips.map((cat) => {
-          const active =
-            (cat.id === "all" && selected === null) || cat.id === selected;
-          const icon = getCategoryIcon(cat);
+        {chips.map((cat) => {
+          const isActive = cat.id === "all" ? selected === null : cat.id === selected;
 
           return (
             <button
               key={cat.id}
+
               data-category-id={cat.id === "all" ? "all" : cat.id}
               onClick={() => onSelect(cat.id === "all" ? null : cat.id)}
               className={`flex flex-col items-center gap-1.5 w-[56px] md:w-[64px] snap-center transition-all duration-300 ${
@@ -245,8 +254,11 @@ export default function CategoryChips({
                   layoutId="categoryIndicator"
                   className="w-1.5 h-1.5 md:w-2 md:h-2 bg-primary-500 rounded-full"
                   transition={{ type: "spring", stiffness: 300, damping: 30 }}
+
                 />
               )}
+              {getCategoryIcon(cat)}
+              {cat.name}
             </button>
           );
         })}
