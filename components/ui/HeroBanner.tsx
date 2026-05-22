@@ -6,6 +6,14 @@ import { MdFastfood } from "react-icons/md";
 import { PiSealCheckFill } from "react-icons/pi";
 import { useBranchData } from "@/lib/context/branch-context";
 import { useRouter } from "next/navigation";
+import { Cormorant_Garamond } from "next/font/google";
+
+// ── Luxury font (matches landing page) ─────────────────────────────────
+const cormorant = Cormorant_Garamond({
+  subsets: ["latin"],
+  weight: ["300", "400", "600", "700"],
+  variable: "--font-cormorant",
+});
 
 export default function HeroBanner({ branchId }: { branchId: string }) {
   const { signatures, branch } = useBranchData();
@@ -58,14 +66,20 @@ export default function HeroBanner({ branchId }: { branchId: string }) {
     }
   };
 
+  // ── Default banner (no signatures) ─────────────────────────────────
   if (!signatures || signatures.length === 0) {
     return (
-      <div className="mx-4 mt-4 mb-6 relative h-52 md:h-64 rounded-3xl overflow-hidden bg-gradient-to-br from-primary-700 to-primary-900 shadow-xl">
+      <div
+        className={`${cormorant.variable} mx-4 mt-4 mb-6 relative h-52 md:h-64 rounded-3xl overflow-hidden bg-gradient-to-br from-primary-700 to-primary-900 shadow-xl`}
+      >
         <div className="absolute inset-0 bg-black/10" />
         <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/10 rounded-full blur-xl" />
         <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-white/10 rounded-full blur-xl" />
         <div className="relative z-10 h-full flex flex-col justify-center px-6 md:px-10">
-          <h2 className="text-3xl md:text-4xl font-extrabold text-white mb-2">
+          <h2
+            className="text-4xl md:text-5xl font-semibold text-white mb-2 tracking-tight"
+            style={{ fontFamily: "var(--font-cormorant)" }}
+          >
             Fresh & Fast
           </h2>
           <p className="text-white/90 text-sm md:text-base max-w-xs">
@@ -83,7 +97,7 @@ export default function HeroBanner({ branchId }: { branchId: string }) {
 
   return (
     <div
-      className="mx-4 mt-4 mb-6 relative h-56 md:h-68 rounded-3xl overflow-hidden shadow-xl cursor-pointer select-none touch-none"
+      className={`${cormorant.variable} mx-4 mt-4 mb-6 relative h-56 md:h-68 rounded-3xl overflow-hidden shadow-xl cursor-pointer select-none touch-none`}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
@@ -113,18 +127,23 @@ export default function HeroBanner({ branchId }: { branchId: string }) {
         </motion.div>
       </AnimatePresence>
 
+      {/* Signature badge */}
       <div className="absolute top-4 left-4 z-20 flex items-center gap-1.5 bg-white/90 backdrop-blur-sm text-primary-700 text-xs font-bold px-3 py-1.5 rounded-full shadow-sm tracking-wide">
         <PiSealCheckFill className="w-4 h-4 shrink-0" />
         Chef's Signature
       </div>
 
-      {/* Veg / non-veg — top right, quiet */}
+      {/* Veg / non‑veg */}
       <div className="absolute top-4 right-4 z-20">
         <div
-          className={`w-5 h-5 rounded border-2 flex items-center justify-center bg-black/30 backdrop-blur-sm ${current.is_veg ? "border-green-400" : "border-red-400"}`}
+          className={`w-5 h-5 rounded border-2 flex items-center justify-center bg-black/30 backdrop-blur-sm ${
+            current.is_veg ? "border-green-400" : "border-red-400"
+          }`}
         >
           <span
-            className={`w-2 h-2 rounded-full ${current.is_veg ? "bg-green-400" : "bg-red-400"}`}
+            className={`w-2 h-2 rounded-full ${
+              current.is_veg ? "bg-green-400" : "bg-red-400"
+            }`}
           />
         </div>
       </div>
@@ -139,7 +158,10 @@ export default function HeroBanner({ branchId }: { branchId: string }) {
           transition={{ duration: 0.35 }}
           className="absolute bottom-0 inset-x-0 z-10 px-5 pb-5 md:px-7 md:pb-6 pointer-events-none"
         >
-          <h2 className="text-2xl md:text-3xl font-black text-white leading-tight drop-shadow">
+          <h2
+            className="text-2xl md:text-3xl font-bold text-white leading-tight drop-shadow-lg"
+            style={{ fontFamily: "var(--font-cormorant)" }}
+          >
             {current.name}
           </h2>
           {current.description && (
