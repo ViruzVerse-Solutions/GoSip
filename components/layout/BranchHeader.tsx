@@ -1,70 +1,159 @@
 'use client'
 
-import { motion } from 'framer-motion'
-import type { Branch } from '@/lib/types'
-import { MdReceiptLong } from 'react-icons/md'
+import { memo, useCallback } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
+import Image from 'next/image'
 import { useRouter } from 'next/navigation'
-import { useSession } from '@/lib/context/session-context'
-
 import { Pacifico } from 'next/font/google'
+import { MdReceiptLong } from 'react-icons/md'
 
-const pacifico = Pacifico({
-  weight: '400',
-  subsets: ['latin'],
-  display: 'swap',
+import { useSession } from '@/lib/context/session-context'
+import type { Branch } from '@/lib/types'
+
+// ─── Font ─────────────────────────────────────────────────────────────────────
+const pacifico = Pacifico({ weight: '400', subsets: ['latin'], display: 'swap' })
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+const BADGE_MAX = 9
+
+// ─── BranchAvatar ─────────────────────────────────────────────────────────────
+const BranchAvatar = memo(({ logoUrl, name }: { logoUrl?: string | null; name: string }) => {
+  const initials = name
+    .split(' ')
+    .slice(0, 2)
+    .map((w) => w[0]?.toUpperCase() ?? '')
+    .join('')
+
+  if (logoUrl) {
+    return (
+      <div className="shrink-0 relative h-11 w-11 rounded-full overflow-hidden border border-gray-200/80 shadow-sm ring-2 ring-white">
+        <Image
+          src={logoUrl}
+          alt={`${name} logo`}
+          fill
+          sizes="44px"
+          className="object-cover"
+          priority
+        />
+      </div>
+    )
+  }
+
+  return (
+    <div
+      aria-hidden
+      className={`
+        shrink-0 h-11 w-11 rounded-full
+        bg-gradient-to-br from-primary-50 to-primary-100
+        border border-primary-200/60 shadow-sm ring-2 ring-white
+        flex items-center justify-center select-none
+        ${pacifico.className}
+      `}
+    >
+      <span className="text-sm text-primary-600 leading-none">{initials}</span>
+    </div>
+  )
 })
+BranchAvatar.displayName = 'BranchAvatar'
 
-export default function BranchHeader({ branch }: { branch: Branch }) {
-  const { activeOrders } = useSession()
+// ─── OrderButton ──────────────────────────────────────────────────────────────
+const OrderButton = memo(({ count, slug }: { count: number; slug: string }) => {
   const router = useRouter()
+  const handleClick = useCallback(() => router.push(`/${slug}/orders`), [router, slug])
+  const label = count > BADGE_MAX ? `${BADGE_MAX}+` : String(count)
+
+  return (
+    <motion.button
+      onClick={handleClick}
+      aria-label={`${count} active order${count !== 1 ? 's' : ''} — view details`}
+      whileTap={{ scale: 0.9 }}
+      className="
+        relative p-2.5 rounded-full
+        text-gray-500 hover:text-primary-600
+        hover:bg-primary-50 active:bg-primary-100
+        transition-colors duration-150
+        focus-visible:outline-none focus-visible:ring-2
+        focus-visible:ring-primary-400 focus-visible:ring-offset-2
+      "
+    >
+      <MdReceiptLong className="w-[22px] h-[22px]" aria-hidden />
+
+      <AnimatePresence>
+        <motion.span
+          key="badge"
+          initial={{ scale: 0.4, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          exit={{ scale: 0.4, opacity: 0 }}
+          transition={{ type: 'spring', stiffness: 500, damping: 22 }}
+          className="
+            absolute -top-0.5 -right-0.5
+            min-w-[18px] h-[18px] px-1
+            bg-primary-500 text-white
+            text-[10px] font-bold leading-none
+            rounded-full flex items-center justify-center
+            shadow-sm tabular-nums pointer-events-none
+          "
+        >
+          {label}
+        </motion.span>
+      </AnimatePresence>
+    </motion.button>
+  )
+})
+OrderButton.displayName = 'OrderButton'
+
+// ─── BranchHeader ─────────────────────────────────────────────────────────────
+function BranchHeader({ branch }: { branch: Branch }) {
+  const { activeOrders } = useSession()
 
   return (
     <motion.header
-      initial={{ y: -20, opacity: 0 }}
+      initial={{ y: -14, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
-      className="sticky top-0 z-30 bg-white shadow-header"
+      transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+      className="
+        sticky top-0 z-30
+        bg-white/90 backdrop-blur-md
+        border-b border-gray-100
+        shadow-[0_1px_8px_0_rgba(0,0,0,0.06)]
+      "
     >
-      <div className="max-w-6xl mx-auto flex items-center justify-between px-4 py-6">
-        {/* Left: café logo + name */}
+      <div className="max-w-6xl mx-auto flex items-center justify-between gap-4 px-4 py-3">
+
+        {/* Left — avatar + branch info */}
         <div className="flex items-center gap-3 min-w-0">
-          {/* Logo – if no logo, fallback to a stylish SVG icon */}
-          {branch.logo_url ? (
-            <img
-              src={branch.logo_url}
-              alt={branch.name}
-              className="h-12 w-12 rounded-full object-cover border border-gray-200 shadow-sm"
-            />
-          ) : (
-            <div className="h-12 w-12 rounded-full bg-primary-100 flex items-center justify-center">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-7 h-7 text-primary-600">
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z" />
-              </svg>
-            </div>
-          )}
+          <BranchAvatar logoUrl={branch.logo_url} name={branch.name} />
+
           <div className="min-w-0">
-            <h1 className={`text-2xl text-primary-600 truncate leading-tight ${pacifico.className} pb-0.5`}>
+            <h1
+              className={`
+                text-xl leading-tight truncate text-primary-600
+                ${pacifico.className}
+              `}
+            >
               {branch.name}
             </h1>
+
             {branch.address && (
-              <p className="text-xs text-gray-500 truncate mt-0.5">{branch.address}</p>
+              <p className="text-[11px] text-gray-400 truncate mt-0.5 leading-tight">
+                {branch.address}
+              </p>
             )}
-            <p className="text-[9px] text-gray-400 tracking-wide mt-0.5">Powered by <span className="font-semibold text-gray-500">Viruzverse</span></p>
+
+            <p className="text-[9px] text-gray-300 tracking-widest uppercase mt-1 leading-none">
+              Powered by{' '}
+              <span className="font-semibold text-gray-400">Viruzverse</span>
+            </p>
           </div>
         </div>
 
-        {/* Right: Order history button */}
+        {/* Right — active orders */}
         {activeOrders.length > 0 && (
-          <button
-            onClick={() => router.push(`/${branch.slug}/orders`)}
-            className="relative p-2 rounded-full hover:bg-gray-50 transition-colors"
-          >
-            <MdReceiptLong className="w-6 h-6 text-gray-700" />
-            <span className="absolute -top-0.5 -right-0.5 bg-primary-500 text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center shadow-sm">
-              {activeOrders.length > 9 ? '9+' : activeOrders.length}
-            </span>
-          </button>
+          <OrderButton count={activeOrders.length} slug={branch.slug} />
         )}
       </div>
     </motion.header>
   )
 }
+
+export default memo(BranchHeader)
