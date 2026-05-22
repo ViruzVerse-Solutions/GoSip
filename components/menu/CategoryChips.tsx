@@ -1,10 +1,8 @@
-// components/menu/CategoryChips.tsx
 "use client";
 
-import { useRef, useCallback, type ComponentType } from "react";
+import { useRef, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
-
   MdFastfood,
   MdCake,
   MdLocalDrink,
@@ -36,16 +34,19 @@ import {
   MdEmojiFoodBeverage,
   MdEgg,
   MdEvent,
-
 } from "react-icons/md";
 
+// ── Types ──────────────────────────────────────────────────────────
 interface Category {
   id: string;
   name: string;
   icon_key?: string | null;
 }
 
+// ── Default "All" chip ─────────────────────────────────────────────
+const ALL_CHIP: Category = { id: "all", name: "All", icon_key: null };
 
+// ── Icon map: key → React element ─────────────────────────────────
 const categoryIconMap: Record<string, React.ReactNode> = {
   all: <MdFastfood className="w-5 h-5" />,
   food: <MdLunchDining className="w-5 h-5" />,
@@ -125,140 +126,127 @@ const categoryIconMap: Record<string, React.ReactNode> = {
   bestsellers: <MdTrendingUp className="w-5 h-5" />,
   offers: <MdLocalOffer className="w-5 h-5" />,
   "kids menu": <MdChildCare className="w-5 h-5" />,
-  // ── Eggs & Omelettes ─────────────────────────────────────────────
-"omelette":       <MdEgg className="w-5 h-5" />,
-"egg dishes":     <MdEgg className="w-5 h-5" />,
-"bread omelette": <MdEgg className="w-5 h-5" />,
-
-// ── Breads (extra variants) ──────────────────────────────────────
-"bread":          <MdBakeryDining className="w-5 h-5" />,
-"pav":            <MdBakeryDining className="w-5 h-5" />,
-
-// ── Cold drinks ──────────────────────────────────────────────────
-"cold drinks":    <MdLocalDrink className="w-5 h-5" />,
-"cold coffee":    <MdCoffee className="w-5 h-5" />,
-"cold beverage":  <MdLocalDrink className="w-5 h-5" />,
-"iced tea":       <MdEmojiFoodBeverage className="w-5 h-5" />,
-"iced coffee":    <MdCoffee className="w-5 h-5" />,
-"frappe":         <MdCoffee className="w-5 h-5" />,
-"milkshake":      <MdLocalDrink className="w-5 h-5" />,
-"lemonade":       <MdLocalDrink className="w-5 h-5" />,
-
-// ── Street food ──────────────────────────────────────────────────
-"chaat":          <MdKebabDining className="w-5 h-5" />,
-"pani puri":      <MdKebabDining className="w-5 h-5" />,
-"vada pav":       <MdBakeryDining className="w-5 h-5" />,
-"samosa":         <MdKebabDining className="w-5 h-5" />,
-"rolls":          <MdKebabDining className="w-5 h-5" />,
-
-// ── Indian specials ──────────────────────────────────────────────
-"dosa":           <MdBreakfastDining className="w-5 h-5" />,
-"idli":           <MdBreakfastDining className="w-5 h-5" />,
-"uttapam":        <MdBreakfastDining className="w-5 h-5" />,
-"upma":           <MdBreakfastDining className="w-5 h-5" />,
-"poha":           <MdBreakfastDining className="w-5 h-5" />,
-"paratha":        <MdBakeryDining className="w-5 h-5" />,
-"puri":           <MdBakeryDining className="w-5 h-5" />,
-"chole":          <MdSoupKitchen className="w-5 h-5" />,
-"rajma":          <MdSoupKitchen className="w-5 h-5" />,
-"paneer":         <MdDinnerDining className="w-5 h-5" />,
+  omelette: <MdEgg className="w-5 h-5" />,
+  "egg dishes": <MdEgg className="w-5 h-5" />,
+  "bread omelette": <MdEgg className="w-5 h-5" />,
+  bread: <MdBakeryDining className="w-5 h-5" />,
+  pav: <MdBakeryDining className="w-5 h-5" />,
+  "cold drinks": <MdLocalDrink className="w-5 h-5" />,
+  "cold coffee": <MdCoffee className="w-5 h-5" />,
+  "cold beverage": <MdLocalDrink className="w-5 h-5" />,
+  "iced tea": <MdEmojiFoodBeverage className="w-5 h-5" />,
+  "iced coffee": <MdCoffee className="w-5 h-5" />,
+  frappe: <MdCoffee className="w-5 h-5" />,
+  milkshake: <MdLocalDrink className="w-5 h-5" />,
+  lemonade: <MdLocalDrink className="w-5 h-5" />,
+  chaat: <MdKebabDining className="w-5 h-5" />,
+  "pani puri": <MdKebabDining className="w-5 h-5" />,
+  "vada pav": <MdBakeryDining className="w-5 h-5" />,
+  samosa: <MdKebabDining className="w-5 h-5" />,
+  rolls: <MdKebabDining className="w-5 h-5" />,
+  dosa: <MdBreakfastDining className="w-5 h-5" />,
+  idli: <MdBreakfastDining className="w-5 h-5" />,
+  uttapam: <MdBreakfastDining className="w-5 h-5" />,
+  upma: <MdBreakfastDining className="w-5 h-5" />,
+  poha: <MdBreakfastDining className="w-5 h-5" />,
+  paratha: <MdBakeryDining className="w-5 h-5" />,
+  puri: <MdBakeryDining className="w-5 h-5" />,
+  chole: <MdSoupKitchen className="w-5 h-5" />,
+  rajma: <MdSoupKitchen className="w-5 h-5" />,
+  paneer: <MdDinnerDining className="w-5 h-5" />,
 };
 
 const defaultIcon = <MdFastfood className="w-5 h-5" />;
 
+// ── Helper: resolve icon from category ─────────────────────────────
 function getCategoryIcon(cat: Category): React.ReactNode {
-  // 1. Try exact icon_key match
+  // 1. Exact icon_key match
   if (cat.icon_key) {
     const byKey = categoryIconMap[cat.icon_key.toLowerCase().trim()];
     if (byKey) return byKey;
   }
-
-  // 2. Try exact name match
+  // 2. Exact name match
   const nameLower = cat.name.toLowerCase().trim();
   const byName = categoryIconMap[nameLower];
   if (byName) return byName;
-
-  // 3. Fuzzy: check if any map key is contained in the category name
+  // 3. Fuzzy – any key contained in the name
   for (const key of Object.keys(categoryIconMap)) {
     if (nameLower.includes(key)) return categoryIconMap[key];
   }
-
   return defaultIcon;
 }
 
-interface Props {
+// ── Component ───────────────────────────────────────────────────────
+export default function CategoryChips({
+  categories,
+  selected,
+  onSelect,
+}: {
   categories: Category[];
   selected: string | null;
   onSelect: (id: string | null) => void;
-}
-
-export default function CategoryChips({ categories, selected, onSelect }: Props) {
-  const chipRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
-
+}) {
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const el = scrollRef.current?.querySelector(
-      `[data-category-id="${selected ?? "all"}"]`,
+      `[data-category-id="${selected ?? "all"}"]`
     );
     el?.scrollIntoView({
-
       behavior: "smooth",
       inline: "center",
       block: "nearest",
     });
-
   }, [selected]);
-
 
   const chips = [ALL_CHIP, ...categories];
 
   return (
     <div className="relative">
-      {/* Right fade — signals horizontal scroll without a scrollbar */}
+      {/* Right fade for horizontal scroll hint */}
       <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-10 bg-gradient-to-l from-white to-transparent z-10" />
 
       <div
         role="tablist"
         aria-label="Menu categories"
+        ref={scrollRef}
         className="flex gap-2 overflow-x-auto no-scrollbar px-4 py-3 snap-x snap-mandatory"
       >
         {chips.map((cat) => {
-          const isActive = cat.id === "all" ? selected === null : cat.id === selected;
+          const isActive =
+            cat.id === "all" ? selected === null : cat.id === selected;
+          const icon = getCategoryIcon(cat);
 
           return (
             <button
               key={cat.id}
-
               data-category-id={cat.id === "all" ? "all" : cat.id}
               onClick={() => onSelect(cat.id === "all" ? null : cat.id)}
-              className={`flex flex-col items-center gap-1.5 w-[56px] md:w-[64px] snap-center transition-all duration-300 ${
-                active
+              className={`flex flex-col items-center gap-1.5 w-14 md:w-16 snap-center transition-all duration-300 ${
+                isActive
                   ? "text-primary-600 scale-105"
                   : "text-gray-400 hover:text-primary-500"
               }`}
             >
               <span
                 className={`w-10 h-10 md:w-11 md:h-11 rounded-full flex items-center justify-center transition-colors ${
-                  active
+                  isActive
                     ? "bg-primary-100 text-primary-600 shadow-sm"
                     : "bg-gray-100 text-gray-400"
                 }`}
               >
                 {icon}
               </span>
-              <span className="text-xs md:text-sm font-semibold whitespace-nowrap overflow-hidden text-ellipsis max-w-[56px] md:max-w-[64px]">
+              <span className="text-xs md:text-sm font-semibold whitespace-nowrap overflow-hidden text-ellipsis max-w-14 md:max-w-16">
                 {cat.name}
               </span>
-              {active && (
+              {isActive && (
                 <motion.div
                   layoutId="categoryIndicator"
                   className="w-1.5 h-1.5 md:w-2 md:h-2 bg-primary-500 rounded-full"
                   transition={{ type: "spring", stiffness: 300, damping: 30 }}
-
                 />
               )}
-              {getCategoryIcon(cat)}
-              {cat.name}
             </button>
           );
         })}
