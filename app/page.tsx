@@ -3,7 +3,20 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
-import { MdLocalCafe } from 'react-icons/md'
+import { Cormorant_Garamond, DM_Mono } from 'next/font/google'
+
+const cormorant = Cormorant_Garamond({
+  subsets: ['latin'],
+  weight: ['300', '400'],
+  style: ['normal', 'italic'],
+  variable: '--font-cormorant',
+})
+
+const dmMono = DM_Mono({
+  subsets: ['latin'],
+  weight: ['300', '400'],
+  variable: '--font-dm-mono',
+})
 
 export default function HomePage() {
   const [slug, setSlug] = useState('')
@@ -17,49 +30,149 @@ export default function HomePage() {
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-primary-100 flex items-center justify-center px-4">
+    <main
+      className={`${cormorant.variable} ${dmMono.variable} min-h-screen flex items-center justify-center px-6`}
+      style={{ backgroundColor: '#F2EDE3' }}
+    >
       <motion.div
-        initial={{ scale: 0.9, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        transition={{ duration: 0.6 }}
-        className="w-full max-w-md bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl p-8 sm:p-10 border border-primary-100"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+        className="w-full max-w-sm"
       >
-        <div className="text-center">
-          <motion.div
-            initial={{ y: -20 }}
-            animate={{ y: 0 }}
-            className="flex justify-center mb-4"
-          >
-            <MdLocalCafe className="w-16 h-16 text-primary-600" />
-          </motion.div>
-          <h1 className="text-3xl font-bold text-primary-900 font-display">
-            Welcome to CafeAura
-          </h1>
-          <p className="text-primary-700 mt-2">
-            Enter your café code to view the menu
-          </p>
-        </div>
+        {/* Top rule */}
+        <div className="w-8 h-px mb-8" style={{ backgroundColor: '#3D3530' }} />
 
-        <form onSubmit={handleSubmit} className="mt-8 space-y-4">
+        {/* Brand */}
+        <h1
+          className="leading-none tracking-tight"
+          style={{
+            fontFamily: 'var(--font-cormorant)',
+            fontSize: '3.5rem',
+            fontWeight: 300,
+            color: '#1A9E3F',
+            letterSpacing: '-0.03em',
+          }}
+        >
+          Go<em style={{ fontStyle: 'italic' }}>Sip</em>
+        </h1>
+
+        <p
+          className="mt-4"
+          style={{
+            fontFamily: 'var(--font-dm-mono)',
+            fontSize: '0.6rem',
+            letterSpacing: '0.22em',
+            textTransform: 'uppercase',
+            color: '#000000',
+            fontWeight: 300,
+          }}
+        >
+          Restro &amp; Menu Platform Partner
+        </p>
+
+        {/* Divider */}
+        <div className="w-full h-px my-10" style={{ backgroundColor: '#DDD8CF' }} />
+
+        {/* Form */}
+        <form onSubmit={handleSubmit}>
+          <label
+            htmlFor="cafe-code"
+            style={{
+              display: 'block',
+              fontFamily: 'var(--font-dm-mono)',
+              fontSize: '0.55rem',
+              letterSpacing: '0.2em',
+              textTransform: 'uppercase',
+              color: '#000000',
+              marginBottom: '0.75rem',
+              fontWeight: 400,
+            }}
+          >
+            Café Code
+          </label>
+
           <input
+            id="cafe-code"
             type="text"
             value={slug}
             onChange={(e) => setSlug(e.target.value)}
-            placeholder="e.g. my-cafe"
-            className="w-full bg-primary-50 rounded-2xl py-4 px-6 text-primary-900 placeholder-primary-400 outline-none focus:ring-2 focus:ring-primary-500 focus:bg-white transition"
+            placeholder="your-cafe"
+            autoComplete="off"
+            style={{
+              width: '100%',
+              background: 'transparent',
+              border: '1px solid #C8C0B5',
+              borderRadius: 0,
+              padding: '14px 16px',
+              fontSize: '13px',
+              color: '#1A1410',
+              fontFamily: 'var(--font-dm-mono)',
+              fontWeight: 300,
+              letterSpacing: '0.05em',
+              outline: 'none',
+              transition: 'border-color 0.2s',
+            }}
+            onFocus={(e) => (e.target.style.borderColor = '#1A1410')}
+            onBlur={(e) => (e.target.style.borderColor = '#C8C0B5')}
           />
+
           <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
+            whileTap={{ scale: 0.99 }}
+            whileHover={{ backgroundColor: '#1A9E3F' }}
             type="submit"
-            className="w-full bg-primary-800 hover:bg-primary-900 text-white font-semibold py-4 rounded-2xl shadow-lg transition"
+            style={{
+              width: '100%',
+              background: '#1A9E3F',
+              color: '#F2EDE3',
+              border: 'none',
+              borderRadius: 0,
+              padding: '16px',
+              marginTop: '1.25rem',
+              fontFamily: 'var(--font-dm-mono)',
+              fontSize: '0.6rem',
+              fontWeight: 400,
+              letterSpacing: '0.25em',
+              textTransform: 'uppercase',
+              cursor: 'pointer',
+              transition: 'background 0.2s',
+            }}
           >
             View Menu
           </motion.button>
         </form>
 
-        <p className="text-center text-primary-500 text-xs mt-6">
-          Don’t have a code? Ask your café staff for the QR code.
+        {/* Hint */}
+        <p
+          style={{
+            fontFamily: 'var(--font-dm-mono)',
+            fontSize: '11px',
+            color: '#9A8E84',
+            fontWeight: 300,
+            marginTop: '1.75rem',
+            lineHeight: 1.7,
+          }}
+        >
+          No code? Scan the QR at your café counter.
+        </p>
+
+        {/* Bottom rule */}
+        <div className="w-8 h-px mt-10" style={{ backgroundColor: '#C8C0B5' }} />
+ 
+        {/* Viruzverse stamp */}
+        <p
+          style={{
+            fontFamily: 'var(--font-dm-mono)',
+            fontSize: '0.55rem',
+            letterSpacing: '0.18em',
+            textTransform: 'uppercase',
+            color: '#BEB5A9',
+            fontWeight: 300,
+            marginTop: '1.25rem',
+          }}
+        >
+          Product of{' '}
+          <span style={{ color: '#9A8E84' }}>Viruzverse</span>
         </p>
       </motion.div>
     </main>
