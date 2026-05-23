@@ -1,111 +1,137 @@
-'use client'
+"use client";
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
-import { v4 as uuidv4 } from 'uuid'
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+} from "react";
+import { v4 as uuidv4 } from "uuid";
 
 export interface ActiveOrder {
-  token: string
-  dailyOrderNumber: number
-  expires: number
-  tableNumber: string
+  token: string;
+  orderId: string;
+  dailyOrderNumber: number;
+  expires: number;
+  tableNumber: string;
+  orderPlacedAt: number;
+  status?: string;
 }
 
 interface SessionContextType {
-  sessionToken: string | null
-  tableNumber: string | null
-  activeOrders: ActiveOrder[]
-  selectTable: (table: string) => void
-  clearSession: () => void
-  addOrder: (order: ActiveOrder) => void
+  sessionToken: string | null;
+  tableNumber: string | null;
+  activeOrders: ActiveOrder[];
+  selectTable: (table: string) => void;
+  clearSession: () => void;
+  addOrder: (order: ActiveOrder) => void;
+  updateOrderStatus: (orderId: string, status: string) => void;
 }
 
-const SessionContext = createContext<SessionContextType | null>(null)
+const SessionContext = createContext<SessionContextType | null>(null);
 
 export function SessionProvider({ children }: { children: ReactNode }) {
-  const [sessionToken, setSessionToken] = useState<string | null>(null)
-  const [tableNumber, setTableNumber] = useState<string | null>(null)
-  const [activeOrders, setActiveOrders] = useState<ActiveOrder[]>([])
-  const [isMounted, setIsMounted] = useState(false)
+  const [sessionToken, setSessionToken] = useState<string | null>(null);
+  const [tableNumber, setTableNumber] = useState<string | null>(null);
+  const [activeOrders, setActiveOrders] = useState<ActiveOrder[]>([]);
+  const [isMounted, setIsMounted] = useState(false);
 
   // Load from localStorage on mount
   useEffect(() => {
     try {
-      const savedSession = localStorage.getItem('cafeaura-session')
+      const savedSession = localStorage.getItem("cafeaura-session");
       if (savedSession) {
-        const { token, table } = JSON.parse(savedSession)
-        setSessionToken(token)
-        setTableNumber(table)
+        const { token, table } = JSON.parse(savedSession);
+        setSessionToken(token);
+        setTableNumber(table);
       }
 
-      const storedOrders = localStorage.getItem('activeOrders')
+      const storedOrders = localStorage.getItem("activeOrders");
       if (storedOrders) {
-        let orders = JSON.parse(storedOrders)
+        let orders = JSON.parse(storedOrders);
         if (Array.isArray(orders)) {
-          const now = Date.now()
-          const validOrders = orders.filter((o: any) => o.expires > now)
-          
+          const now = Date.now();
+          const validOrders = orders.filter((o: ActiveOrder) => o.expires > now);
           if (validOrders.length !== orders.length) {
-            localStorage.setItem('activeOrders', JSON.stringify(validOrders))
+            localStorage.setItem("activeOrders", JSON.stringify(validOrders));
           }
-          setActiveOrders(validOrders)
+          setActiveOrders(validOrders);
         }
       } else {
-        // Migration from old lastOrder format
-        const oldStored = localStorage.getItem('lastOrder')
+        const oldStored = localStorage.getItem("lastOrder");
         if (oldStored) {
-          const order = JSON.parse(oldStored)
+          const order = JSON.parse(oldStored);
           if (order.expires > Date.now()) {
-            setActiveOrders([order])
-            localStorage.setItem('activeOrders', JSON.stringify([order]))
+            setActiveOrders([order]);
+            localStorage.setItem("activeOrders", JSON.stringify([order]));
           }
-          localStorage.removeItem('lastOrder')
+          localStorage.removeItem("lastOrder");
         }
       }
     } catch (_) {}
-    
-    setIsMounted(true)
-  }, [])
 
-  // Save activeOrders when it updates
+    setIsMounted(true);
+  }, []);
+
+  // Persist activeOrders whenever they change
   useEffect(() => {
     if (isMounted) {
-      localStorage.setItem('activeOrders', JSON.stringify(activeOrders))
+      localStorage.setItem("activeOrders", JSON.stringify(activeOrders));
     }
-  }, [activeOrders, isMounted])
+  }, [activeOrders, isMounted]);
 
   const selectTable = (table: string) => {
-    const token = uuidv4()
-    setSessionToken(token)
-    setTableNumber(table)
-    localStorage.setItem('cafeaura-session', JSON.stringify({ token, table }))
-  }
+    const token = uuidv4();
+    setSessionToken(token);
+    setTableNumber(table);
+    localStorage.setItem("cafeaura-session", JSON.stringify({ token, table }));
+  };
 
   const clearSession = () => {
-    setSessionToken(null)
-    setTableNumber(null)
-    setActiveOrders([])
-    localStorage.removeItem('cafeaura-session')
-    localStorage.removeItem('activeOrders')
-  }
+    setSessionToken(null);
+    setTableNumber(null);
+    setActiveOrders([]);
+    localStorage.removeItem("cafeaura-session");
+    localStorage.removeItem("activeOrders");
+  };
 
   const addOrder = (order: ActiveOrder) => {
     setActiveOrders((prev) => {
-      // Remove if exists to update it, and filter out expired
-      const now = Date.now()
-      const filtered = prev.filter((o) => o.token !== order.token && o.expires > now)
-      return [...filtered, order]
-    })
-  }
+      const now = Date.now();
+      const filtered = prev.filter(
+        (o) => o.token !== order.token && o.expires > now,
+      );
+      return [...filtered, order];
+    });
+  };
+
+  const updateOrderStatus = (orderId: string, status: string) => {
+    setActiveOrders((prev) =>
+      prev.map((o) => (o.orderId === orderId ? { ...o, status } : o)),
+    );
+  };
 
   return (
-    <SessionContext.Provider value={{ sessionToken, tableNumber, activeOrders, selectTable, clearSession, addOrder }}>
+    <SessionContext.Provider
+      value={{
+        sessionToken,
+        tableNumber,
+        activeOrders,
+        selectTable,
+        clearSession,
+        addOrder,
+        updateOrderStatus,
+      }}
+    >
       {children}
     </SessionContext.Provider>
-  )
+  );
 }
 
 export function useSession() {
-  const context = useContext(SessionContext)
-  if (!context) throw new Error('useSession must be used within SessionProvider')
-  return context
+  const context = useContext(SessionContext);
+  if (!context)
+    throw new Error("useSession must be used within SessionProvider");
+  return context;
 }

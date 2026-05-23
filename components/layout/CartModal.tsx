@@ -1,67 +1,91 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { motion, AnimatePresence } from 'framer-motion'
-import { useCart } from '@/lib/context/cart-context'
-import { placeOrder } from '@/lib/services/order.service'
-import { MenuItem } from '@/lib/types'
-import QuantityControl from '../ui/QuantityControl'
-import TableSelectionModal from '../order/TableSelectionModal'
-import { MdClose, MdDeleteOutline, MdShoppingCart, MdRemoveShoppingCart } from 'react-icons/md'
-import { useSession } from '@/lib/context/session-context'
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { motion, AnimatePresence } from "framer-motion";
+import { useCart } from "@/lib/context/cart-context";
+import { placeOrder } from "@/lib/services/order.service";
+import { MenuItem } from "@/lib/types";
+import QuantityControl from "../ui/QuantityControl";
+import TableSelectionModal from "../order/TableSelectionModal";
+import {
+  MdClose,
+  MdDeleteOutline,
+  MdShoppingCart,
+  MdRemoveShoppingCart,
+} from "react-icons/md";
+import { useSession } from "@/lib/context/session-context";
 
 export default function CartModal({
   branchSlug,
   branchId,
 }: {
-  branchSlug?: string
-  branchId?: string
+  branchSlug?: string;
+  branchId?: string;
 }) {
-  const { state, dispatch, totalItems, totalPrice, isCartOpen, closeCart } = useCart()
-  const { tableNumber, selectTable, sessionToken } = useSession()
-  const [loading, setLoading] = useState(false)
-  const [showTableModal, setShowTableModal] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const { state, dispatch, totalItems, totalPrice, isCartOpen, closeCart } =
+    useCart();
+  const { tableNumber, selectTable, sessionToken, addOrder } = useSession();
+  const [loading, setLoading] = useState(false);
+  const [showTableModal, setShowTableModal] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const router = useRouter()
+  const router = useRouter();
 
   const handlePlaceOrder = async (table: string) => {
-    if (!branchId || !branchSlug) return
-    setLoading(true)
-    setError(null)
-    setShowTableModal(false) // Close modal so user sees loading state and potential errors
-    
+    if (!branchId || !branchSlug) return;
+    setLoading(true);
+    setError(null);
+    setShowTableModal(false);
+
     try {
-      // Save table to session if it wasn't there
       if (!tableNumber) {
-        selectTable(table)
+        selectTable(table);
       }
 
-      // We use the context's sessionToken if it exists, otherwise generate one
-      const currentSessionToken = sessionToken || Math.random().toString(36).substring(2, 10).toUpperCase()
-      const result = await placeOrder(currentSessionToken, table, branchId, state.items)
-      dispatch({ type: 'CLEAR_CART' })
-      closeCart()
-      router.push(`/${branchSlug}/order/${result.token}`)
+      const currentSessionToken =
+        sessionToken ||
+        Math.random().toString(36).substring(2, 10).toUpperCase();
+      const result = await placeOrder(
+        currentSessionToken,
+        table,
+        branchId,
+        state.items,
+      );
+
+      // ← ADD THIS BLOCK
+      addOrder({
+        token: result.token,
+        orderId: result.orderId,
+        dailyOrderNumber: result.dailyOrderNumber,
+        tableNumber: table,
+        orderPlacedAt: Date.now(),
+        expires: Date.now() + 2 * 60 * 60 * 1000, // 2 hours
+        status: "pending",
+      });
+      // ← END ADD
+
+      dispatch({ type: "CLEAR_CART" });
+      closeCart();
+      router.push(`/${branchSlug}/order/${result.token}`);
     } catch (err: any) {
-      setError(err.message || 'Failed to place order')
+      setError(err.message || "Failed to place order");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const onProceedClick = () => {
-    setError(null)
+    setError(null);
     // Always show table selector so user confirms/selects table
     // This covers: new session, expired session, and between orders
-    setShowTableModal(true)
-  }
+    setShowTableModal(true);
+  };
 
   const handleClearAll = () => {
-    dispatch({ type: 'CLEAR_CART' })
-    closeCart()
-  }
+    dispatch({ type: "CLEAR_CART" });
+    closeCart();
+  };
 
   return (
     <AnimatePresence>
@@ -78,16 +102,16 @@ export default function CartModal({
 
           {/* Cart sheet */}
           <motion.div
-            initial={{ y: '100%' }}
+            initial={{ y: "100%" }}
             animate={{ y: 0 }}
-            exit={{ y: '100%' }}
-            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+            exit={{ y: "100%" }}
+            transition={{ type: "spring", damping: 25, stiffness: 300 }}
             className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-3xl max-h-[80vh] flex flex-col shadow-2xl"
           >
             <div className="w-10 h-1.5 bg-gray-300 rounded-full mx-auto mt-3 mb-2" />
             <div className="flex items-center justify-between px-5 py-2 border-b border-gray-100">
               <h2 className="text-lg font-bold text-gray-900">
-                Your Cart · {totalItems} item{totalItems !== 1 ? 's' : ''}
+                Your Cart · {totalItems} item{totalItems !== 1 ? "s" : ""}
               </h2>
               <div className="flex items-center gap-2">
                 {totalItems > 0 && (
@@ -98,7 +122,10 @@ export default function CartModal({
                     Clear all
                   </button>
                 )}
-                <button onClick={closeCart} className="p-1 text-gray-500 hover:text-gray-700">
+                <button
+                  onClick={closeCart}
+                  className="p-1 text-gray-500 hover:text-gray-700"
+                >
                   <MdClose className="w-6 h-6" />
                 </button>
               </div>
@@ -107,10 +134,17 @@ export default function CartModal({
             <div className="flex-1 overflow-y-auto px-5 py-2 space-y-3">
               {state.items.map((cartItem, idx) => {
                 return (
-                  <div key={cartItem.itemId || `cart-item-${idx}`} className="flex items-center gap-3 py-3 border-b border-gray-50">
+                  <div
+                    key={cartItem.itemId || `cart-item-${idx}`}
+                    className="flex items-center gap-3 py-3 border-b border-gray-50"
+                  >
                     <div className="w-14 h-14 rounded-xl bg-gray-100 overflow-hidden shrink-0">
                       {cartItem.image_url ? (
-                        <img src={cartItem.image_url} alt={cartItem.name} className="w-full h-full object-cover" />
+                        <img
+                          src={cartItem.image_url}
+                          alt={cartItem.name}
+                          className="w-full h-full object-cover"
+                        />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-gray-300">
                           <MdShoppingCart className="w-6 h-6" />
@@ -118,35 +152,59 @@ export default function CartModal({
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-gray-900 truncate">{cartItem.name || 'Item'}</p>
-                      <p className="text-sm font-bold text-green-600 mt-0.5">₹{cartItem.price}</p>
+                      <p className="text-sm font-semibold text-gray-900 truncate">
+                        {cartItem.name || "Item"}
+                      </p>
+                      <p className="text-sm font-bold text-green-600 mt-0.5">
+                        ₹{cartItem.price}
+                      </p>
                     </div>
                     <QuantityControl
                       quantity={cartItem.quantity}
                       onIncrease={(e) => {
-                        e.stopPropagation()
-                        dispatch({ type: 'ADD_ITEM', payload: { itemId: cartItem.itemId, name: cartItem.name, price: cartItem.price, image_url: cartItem.image_url } })
+                        e.stopPropagation();
+                        dispatch({
+                          type: "ADD_ITEM",
+                          payload: {
+                            itemId: cartItem.itemId,
+                            name: cartItem.name,
+                            price: cartItem.price,
+                            image_url: cartItem.image_url,
+                          },
+                        });
                       }}
                       onDecrease={(e) => {
-                        e.stopPropagation()
+                        e.stopPropagation();
                         if (cartItem.quantity > 1) {
-                          dispatch({ type: 'UPDATE_QUANTITY', payload: { itemId: cartItem.itemId, quantity: cartItem.quantity - 1 } })
+                          dispatch({
+                            type: "UPDATE_QUANTITY",
+                            payload: {
+                              itemId: cartItem.itemId,
+                              quantity: cartItem.quantity - 1,
+                            },
+                          });
                         } else {
-                          dispatch({ type: 'REMOVE_ITEM', payload: cartItem.itemId })
+                          dispatch({
+                            type: "REMOVE_ITEM",
+                            payload: cartItem.itemId,
+                          });
                         }
                       }}
                     />
                     <button
                       onClick={(e) => {
-                        e.stopPropagation()
-                        dispatch({ type: 'REMOVE_ITEM', payload: cartItem.itemId })
+                        e.stopPropagation();
+                        dispatch({
+                          type: "REMOVE_ITEM",
+                          payload: cartItem.itemId,
+                        });
                       }}
                       className="p-1.5 text-red-400 hover:text-red-600 transition"
                     >
                       <MdDeleteOutline className="w-5 h-5" />
                     </button>
                   </div>
-                )
+                );
               })}
             </div>
 
@@ -155,7 +213,9 @@ export default function CartModal({
                 {totalPrice !== undefined && (
                   <div className="flex items-center justify-between mb-3">
                     <span className="text-gray-700 font-medium">Total</span>
-                    <span className="text-xl font-bold text-primary-600">₹{totalPrice}</span>
+                    <span className="text-xl font-bold text-primary-600">
+                      ₹{totalPrice}
+                    </span>
                   </div>
                 )}
 
@@ -170,7 +230,9 @@ export default function CartModal({
                   disabled={loading}
                   className="w-full bg-primary-600 text-white font-bold py-3 rounded-xl disabled:opacity-50"
                 >
-                  {loading ? 'Placing Order…' : `Proceed to Order · ₹${totalPrice}`}
+                  {loading
+                    ? "Placing Order…"
+                    : `Proceed to Order · ₹${totalPrice}`}
                 </button>
               </div>
             )}
@@ -188,5 +250,5 @@ export default function CartModal({
         </>
       )}
     </AnimatePresence>
-  )
+  );
 }

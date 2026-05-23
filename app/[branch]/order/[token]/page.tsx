@@ -1,383 +1,481 @@
-'use client'
+"use client";
 
-import { useEffect, useRef, useState } from 'react'
-import { useParams, useRouter } from 'next/navigation'
-import { motion, AnimatePresence } from 'framer-motion'
-import useSWR from 'swr'
+import { useEffect, useRef, useState, useCallback } from "react";
+import { useParams, useRouter } from "next/navigation";
+import { motion, AnimatePresence } from "framer-motion";
+import { QRCodeSVG } from "qrcode.react";
 import {
-  MdArrowBack, MdCheckCircle, MdAccessTime,
-  MdRestaurant, MdPayment, MdCelebration, MdTimer
-} from 'react-icons/md'
-import { fetchOrderByToken, subscribeToOrderUpdates } from '@/lib/services/menu.service'
-import { useSession } from '@/lib/context/session-context'
+  MdArrowBack,
+  MdPayment,
+  MdTimer,
+  MdRestaurant,
+  MdCancel,
+  MdQrCode,
+  MdAccessTime,
+} from "react-icons/md";
+import { fetchOrder, subscribeToOrder } from "@/lib/services/order.service";
+import { useSession } from "@/lib/context/session-context";
 
-const ESTIMATE_MS = 5 * 60 * 1000
-const SESSION_TTL = 120 * 60 * 1000
-const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
-
-const GREEN   = '#1A9E3F'
-const GREEN_D = '#158033'
-const GREEN_XD= '#0f6028'
-const GREEN_L = '#e8f7ed'
-const GREEN_M = '#b3e4c2'
+const ESTIMATE_MS = 5 * 60 * 1000;
+const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
 type OrderItem = {
-  id: string
-  price: number
-  quantity: number
-  menu_items: { name: string }
-}
+  id: string;
+  price: number;
+  quantity: number;
+  menu_items: { id: string; name: string; image_url: string };
+};
 
 type Order = {
-  id: string
-  token: string
-  created_at: string
-  status: string
-  table_number: number
-  daily_order_number: number
-  order_items: OrderItem[]
-}
+  id: string;
+  token: string;
+  created_at: string;
+  status: string;
+  table_number: number;
+  daily_order_number: number;
+  order_items: OrderItem[];
+};
 
-const formatCountdown = (ms: number): string => {
-  const seconds = Math.floor(ms / 1000)
-  const mins = Math.floor(seconds / 60)
-  const secs = seconds % 60
-  return mins > 0 ? `${mins}m ${secs}s` : `${secs}s`
-}
+// Module-level cache — survives client-side navigation, cleared on hard refresh
+const orderCache = new Map<string, Order>();
+
+const pad = (n: number) => String(n).padStart(2, "0");
 
 const formatOrderTime = (iso: string) => {
-  const date = new Date(iso)
-  const hours = date.getHours()
-  const minutes = String(date.getMinutes()).padStart(2, '0')
+  const date = new Date(iso);
+  const hours = date.getHours();
+  const minutes = String(date.getMinutes()).padStart(2, "0");
   return {
-    time: `${String(hours % 12 || 12).padStart(2, '0')}:${minutes}`,
-    ampm: hours >= 12 ? 'PM' : 'AM',
-    date: `${date.getDate()} ${MONTHS[date.getMonth()]}`
-  }
-}
+    time: `${String(hours % 12 || 12).padStart(2, "0")}:${minutes}`,
+    ampm: hours >= 12 ? "PM" : "AM",
+    date: `${date.getDate()} ${MONTHS[date.getMonth()]}`,
+  };
+};
 
 // ─── Loading Skeleton ─────────────────────────────────────────────────────────
 const LoadingSkeleton = () => (
-  <div className="min-h-screen flex items-center justify-center" style={{ background: GREEN_L }}>
-    <div className="w-full max-w-md mx-4">
-      <div className="bg-white rounded-3xl shadow-lg overflow-hidden">
-        <div className="h-56 animate-pulse" style={{ background: GREEN_M }} />
-        <div className="p-6 space-y-4">
-          <div className="h-8 rounded-xl animate-pulse" style={{ background: GREEN_L, width: '60%' }} />
-          <div className="h-20 rounded-xl animate-pulse" style={{ background: GREEN_L }} />
-          <div className="h-12 rounded-xl animate-pulse" style={{ background: GREEN_L }} />
-        </div>
-      </div>
+  <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+    <div className="w-full max-w-md mx-4 space-y-3">
+      <div className="h-40 rounded-2xl skeleton" />
+      <div className="h-28 rounded-2xl skeleton" />
+      <div className="h-20 rounded-2xl skeleton" />
     </div>
   </div>
-)
+);
 
 // ─── Step Indicator ───────────────────────────────────────────────────────────
-type StepState = 'done' | 'active' | 'pending'
-const StepRow = ({ states }: { states: [StepState, StepState, StepState] }) => {
-  const labels = ['Received', 'Preparing', 'Ready!']
+type StepState = "done" | "active" | "pending" | "cancelled";
+
+const StepRow = ({
+  states,
+  isCancelled,
+}: {
+  states: [StepState, StepState, StepState];
+  isCancelled?: boolean;
+}) => {
+  const labels = ["Received", "Preparing", isCancelled ? "Cancelled" : "Ready!"];
+
+  const stepStyle = (s: StepState) => {
+    if (s === "done") return { bg: "var(--color-primary-600)", border: "none", color: "#fff", labelColor: "var(--color-primary-700)" };
+    if (s === "active") return { bg: "#fff", border: "2px solid var(--color-primary-500)", color: "var(--color-primary-600)", labelColor: "var(--color-primary-600)" };
+    if (s === "cancelled") return { bg: "#fff0f0", border: "1.5px solid #ffb3b3", color: "#e53935", labelColor: "#e53935" };
+    return { bg: "#f0f0f0", border: "1.5px solid #e0e0e0", color: "#bdbdbd", labelColor: "#bdbdbd" };
+  };
+
   const icons = [
-    <path key="c" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M20 6L9 17l-5-5" />,
-    <><circle key="c1" cx="12" cy="12" r="10" /><polyline key="c2" points="12 6 12 12 16 14" /></>,
-    <path key="s" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2}
-      d="M12 3v1M12 20v1M4.22 4.22l.7.7M19.08 19.08l.7.7M3 12H4M20 12h1M4.22 19.78l.7-.7M19.08 4.92l.7-.7M9 12l2 2 4-4" />,
-  ]
+    <svg key="check" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>,
+    <svg key="fire" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M12 2C9 2 7 4 7 6c-2 0-4 2-4 4 0 1.5 1 3 2.5 3.5V20h13v-6.5C20 13 21 11.5 21 10c0-2-2-4-4-4 0-2-2-4-5-4z" /></svg>,
+    <svg key="star" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>,
+  ];
+
+  const cancelIcon = (
+    <svg key="x" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M18 6L6 18M6 6l12 12" />
+    </svg>
+  );
 
   return (
-    <div className="flex items-center px-5 py-4">
-      {states.map((s, i) => (
-        <>
-          <div key={i} className="flex flex-col items-center" style={{ flex: '0 0 auto' }}>
-            <div
-              className="w-8 h-8 rounded-full flex items-center justify-center"
-              style={{
-                background: s === 'done' ? GREEN : s === 'active' ? '#fff' : GREEN_L,
-                border: s === 'active' ? `2.5px solid ${GREEN}` : s === 'pending' ? `2px solid ${GREEN_M}` : 'none',
-                color: s === 'done' ? '#fff' : s === 'active' ? GREEN : '#aac8b4',
-              }}
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                {icons[i]}
-              </svg>
+    <div className="flex items-center px-5 py-4" style={{ borderBottom: "1px solid #f0f0f0" }}>
+      {states.map((s, i) => {
+        const style = stepStyle(s);
+        return (
+          <div key={i} className="contents">
+            <div className="flex flex-col items-center shrink-0">
+              <div
+                className="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
+                style={{ background: style.bg, border: style.border, color: style.color }}
+              >
+                {s === "cancelled" ? cancelIcon : icons[i]}
+              </div>
+              <span className="mt-1.5 font-bold uppercase" style={{ fontSize: 9, letterSpacing: "0.4px", color: style.labelColor }}>
+                {labels[i]}
+              </span>
             </div>
-            <span className="text-xs font-semibold mt-1.5" style={{
-              color: s === 'pending' ? '#aac8b4' : s === 'active' ? GREEN_D : GREEN,
-              fontSize: 10, letterSpacing: '0.2px'
-            }}>
-              {labels[i]}
-            </span>
+            {i < 2 && (
+              <div
+                className="flex-1 h-0.5 mx-1 mb-5 rounded-sm"
+                style={{ background: s === "done" ? "var(--color-primary-400)" : "#e8e8e8" }}
+              />
+            )}
           </div>
-          {i < 2 && (
-            <div
-              key={`line-${i}`}
-              className="flex-1 h-0.5 mx-1 mb-4"
-              style={{ background: states[i] === 'done' ? GREEN : GREEN_M }}
-            />
-          )}
-        </>
-      ))}
+        );
+      })}
     </div>
-  )
-}
+  );
+};
+
+// ─── Timer Display ────────────────────────────────────────────────────────────
+const TimerDisplay = ({ remaining }: { remaining: number }) => {
+  const mins = Math.floor(remaining / 60000);
+  const secs = Math.floor((remaining % 60000) / 1000);
+  const progress = Math.min(1 - remaining / ESTIMATE_MS, 1);
+
+  return (
+    <div className="text-center px-5 py-6" style={{ borderBottom: "1px solid #f0f0f0", background: "#f8fdf8" }}>
+      <div className="flex items-center justify-center gap-1.5 mb-4" style={{ fontSize: 10, fontWeight: 700, color: "#9e9e9e", letterSpacing: "2px", textTransform: "uppercase" }}>
+        <MdAccessTime style={{ fontSize: 13, color: "var(--color-primary-500)" }} />
+        Estimated wait
+      </div>
+      <div className="flex items-center justify-center gap-1 mb-1">
+        {[pad(mins)[0], pad(mins)[1]].map((d, i) => (
+          <div key={i} className="flex items-center justify-center rounded-xl" style={{ width: 44, height: 60, background: "#fff", border: "1px solid #e8e8e8", fontFamily: "'DM Mono', monospace", fontSize: 40, fontWeight: 500, color: "var(--color-primary-700)", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
+            {d}
+          </div>
+        ))}
+        <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 36, fontWeight: 400, color: "#bdbdbd", padding: "0 3px", animation: "blink-colon 1s step-end infinite" }}>:</span>
+        {[pad(secs)[0], pad(secs)[1]].map((d, i) => (
+          <div key={i} className="flex items-center justify-center rounded-xl" style={{ width: 44, height: 60, background: "#fff", border: "1px solid #e8e8e8", fontFamily: "'DM Mono', monospace", fontSize: 40, fontWeight: 500, color: "var(--color-primary-700)", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
+            {d}
+          </div>
+        ))}
+      </div>
+      <div className="flex justify-center mb-4" style={{ fontSize: 10, color: "#bdbdbd", letterSpacing: "1px", textTransform: "uppercase" }}>
+        <span style={{ width: 90, textAlign: "center" }}>min</span>
+        <span style={{ width: 90, textAlign: "center" }}>sec</span>
+      </div>
+      <div className="mx-auto mb-3 overflow-hidden rounded-full" style={{ height: 4, background: "#e8e8e8", maxWidth: 200 }}>
+        <div style={{ height: "100%", width: `${progress * 100}%`, background: "var(--color-primary-500)", borderRadius: 4, transition: "width 1s linear" }} />
+      </div>
+      <p style={{ fontSize: 12, color: "#9e9e9e" }}>until your order is ready</p>
+    </div>
+  );
+};
+
+// ─── Ready Banner ──────────────────────────────────────────────────────────────
+const ReadyBanner = () => (
+  <motion.div initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} className="text-center px-5 py-8" style={{ borderBottom: "1px solid #f0f0f0", background: "#f8fdf8" }}>
+    <div className="mx-auto mb-4 w-16 h-16 rounded-full flex items-center justify-center" style={{ background: "var(--color-primary-50)", border: "2px solid var(--color-primary-200)" }}>
+      <svg width="32" height="32" viewBox="0 0 36 36" fill="none">
+        <path d="M9 18.5L15 24.5L27 12" stroke="var(--color-primary-600)" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    </div>
+    <p className="font-extrabold text-gray-900 mb-1" style={{ fontSize: 22, letterSpacing: "-0.5px" }}>Your order is ready!</p>
+    <p className="text-gray-400 text-sm">Head to the counter to pick it up</p>
+  </motion.div>
+);
+
+// ─── Cancelled Banner ──────────────────────────────────────────────────────────
+const CancelledBanner = () => (
+  <motion.div initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} className="text-center px-5 py-7" style={{ borderBottom: "1px solid #ffe0e0", background: "#fff8f8" }}>
+    <div className="mx-auto mb-3 w-14 h-14 rounded-full flex items-center justify-center" style={{ background: "#fff0f0", border: "1.5px solid #ffb3b3" }}>
+      <MdCancel style={{ fontSize: 28, color: "#e53935" }} />
+    </div>
+    <p className="font-extrabold mb-1" style={{ fontSize: 20, color: "#c62828" }}>Order Cancelled</p>
+    <p className="text-sm" style={{ color: "#ef9a9a" }}>This order has been cancelled</p>
+  </motion.div>
+);
+
+// ─── QR Panel ─────────────────────────────────────────────────────────────────
+const QRPanel = ({ orderId, orderNumber }: { orderId: string; orderNumber: number }) => (
+  <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="mx-4 mt-3 rounded-2xl overflow-hidden bg-white" style={{ border: "1px solid #e8e8e8", boxShadow: "var(--shadow-card)" }}>
+    <div className="flex items-center gap-2 px-4 py-3" style={{ borderBottom: "1px solid #f0f0f0" }}>
+      <MdQrCode style={{ fontSize: 15, color: "var(--color-primary-500)" }} />
+      <span className="font-bold uppercase" style={{ fontSize: 10, letterSpacing: "2px", color: "#9e9e9e" }}>Show to staff at counter</span>
+    </div>
+    <div className="flex items-center gap-5 px-4 py-4">
+      <div className="rounded-xl p-2 shrink-0" style={{ background: "#f8f8f8", border: "1px solid #e8e8e8" }}>
+        <QRCodeSVG value={orderId} size={84} level="M" bgColor="#f8f8f8" fgColor="#1a1a1a" includeMargin={false} />
+      </div>
+      <div className="flex flex-col gap-1">
+        <p style={{ fontSize: 11, color: "#9e9e9e", fontWeight: 600, letterSpacing: "0.5px", textTransform: "uppercase" }}>Order number</p>
+        <p style={{ fontFamily: "'DM Mono', monospace", fontSize: 44, fontWeight: 600, color: "var(--color-primary-600)", letterSpacing: "-2px", lineHeight: 1 }}>#{orderNumber}</p>
+        <p style={{ fontSize: 11, color: "#bdbdbd", marginTop: 2 }}>Scan or show order number</p>
+      </div>
+    </div>
+  </motion.div>
+);
+
+// ─── Not Found ────────────────────────────────────────────────────────────────
+const NotFoundState = ({ router, branch }: { router: ReturnType<typeof useRouter>; branch: string }) => (
+  <div className="min-h-screen bg-gray-50 flex items-center justify-center px-6">
+    <div className="text-center">
+      <div className="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center bg-gray-100">
+        <MdRestaurant style={{ fontSize: 30, color: "#9e9e9e" }} />
+      </div>
+      <h2 className="text-lg font-bold text-gray-700 mb-1">Order Not Found</h2>
+      <p className="text-sm text-gray-400 mb-5">This order link seems to be invalid</p>
+      <button onClick={() => router.push(`/${branch}`)} className="px-7 py-3 rounded-xl font-bold text-sm text-white" style={{ background: "var(--color-primary-600)" }}>
+        Back to Menu
+      </button>
+    </div>
+  </div>
+);
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function OrderPage() {
-  const { branch, token } = useParams<{ branch: string; token: string }>()
-  const router = useRouter()
-  const { addOrder } = useSession()
-  const [remaining, setRemaining] = useState<number | null>(null)
-  const timerRef = useRef<NodeJS.Timeout | null>(null)
+  const { branch, token } = useParams<{ branch: string; token: string }>();
+  const router = useRouter();
+  const { activeOrders } = useSession();
 
-  const { data: order, isLoading, mutate } = useSWR<Order>(
-    token ? `/api/orders/${token}` : null,
-    () => fetchOrderByToken(token),
-    {
-      revalidateOnFocus: true,
-      onSuccess: (data) => {
-        if (!data) return
-        const createdTime = new Date(data.created_at).getTime()
-        const timeRemaining = Math.max(0, createdTime + ESTIMATE_MS - Date.now())
-        setRemaining(timeRemaining)
-        addOrder({
-          token: data.token,
-          dailyOrderNumber: data.daily_order_number,
-          expires: createdTime + SESSION_TTL,
-          tableNumber: data.table_number
-        })
-      }
+  const [order, setOrder] = useState<Order | null>(() => orderCache.get(token) ?? null);
+  const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
+  const [remaining, setRemaining] = useState<number | null>(null);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const fetchedRef = useRef(false); // prevents double-fetch in Strict Mode
+
+  // ── helpers ──────────────────────────────────────────────────────────────
+  const applyOrder = useCallback((data: Order) => {
+    orderCache.set(token, data);
+    setOrder(data);
+    setLoading(false);
+    setNotFound(false);
+  }, [token]);
+
+  // 1. Initial fetch — runs once per token, skips if already cached
+  useEffect(() => {
+    // Already have it in cache — no need to fetch
+    if (orderCache.has(token)) {
+      setOrder(orderCache.get(token)!);
+      setLoading(false);
+      return;
     }
-  )
 
-  useEffect(() => {
-    if (!order?.id) return
-    return subscribeToOrderUpdates(order.id, (updated) => mutate({ ...order, ...updated }, false))
-  }, [order?.id, mutate])
+    // Strict Mode double-invoke guard
+    if (fetchedRef.current) return;
+    fetchedRef.current = true;
 
+    let cancelled = false;
+
+    const loadOrder = async () => {
+      try {
+        const data = await fetchOrder(token);
+        if (cancelled) return;
+
+        if (data) {
+          applyOrder(data as unknown as Order);
+        } else {
+          // fetchOrder returned null — order doesn't exist
+          setNotFound(true);
+          setLoading(false);
+        }
+      } catch (err) {
+        console.error("[OrderPage] fetchOrder failed:", err);
+        if (!cancelled) {
+          setNotFound(true);
+          setLoading(false);
+        }
+      }
+    };
+
+    loadOrder();
+    return () => { cancelled = true; };
+  }, [token, applyOrder]);
+
+  // Reset fetchedRef when token changes (navigating between orders)
   useEffect(() => {
-    if (remaining === null || remaining <= 0) return
+    fetchedRef.current = false;
+  }, [token]);
+
+  // 2. Real-time subscription — subscribes as soon as we have order.id
+  //    Fires immediately on any DB UPDATE to this order row
+  useEffect(() => {
+    if (!order?.id) return;
+
+    const unsubscribe = subscribeToOrder(order.id, (updated) => {
+      console.log("[OrderPage] realtime update:", updated);
+      setOrder((prev) => {
+        if (!prev) return prev;
+        const merged = { ...prev, ...updated } as Order;
+        orderCache.set(token, merged);
+        return merged;
+      });
+    });
+
+    return unsubscribe;
+  }, [order?.id, token]);
+
+  // 3. Initialise countdown from order timestamp
+  useEffect(() => {
+    if (!order) return;
+    const placedAt = new Date(order.created_at).getTime();
+    const newRemaining = Math.max(0, ESTIMATE_MS - (Date.now() - placedAt));
+    setRemaining(newRemaining);
+  }, [order?.created_at]); // only re-init when the order itself changes, not on every status update
+
+  // 4. Tick countdown
+  useEffect(() => {
+    if (remaining === null || remaining <= 0) {
+      if (timerRef.current) clearInterval(timerRef.current);
+      return;
+    }
     timerRef.current = setInterval(() => {
-      setRemaining(prev => (!prev || prev <= 1000) ? 0 : prev - 1000)
-    }, 1000)
-    return () => { if (timerRef.current) clearInterval(timerRef.current) }
-  }, [remaining !== null])
+      setRemaining((prev) => (!prev || prev <= 1000 ? 0 : prev - 1000));
+    }, 1000);
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [remaining]);
 
-  const isReady = remaining === 0
-  const total = order?.order_items.reduce((sum, i) => sum + i.price * i.quantity, 0) || 0
-  const { time, ampm, date } = order ? formatOrderTime(order.created_at) : { time: '', ampm: '', date: '' }
+  // ── derived state ─────────────────────────────────────────────────────────
+  const isCancelled = order?.status === "cancelled";
+  const isReady = !isCancelled && (order?.status === "ready" || remaining === 0);
+  const total = order?.order_items.reduce((sum, i) => sum + i.price * i.quantity, 0) ?? 0;
+  const { time, ampm, date } = order ? formatOrderTime(order.created_at) : { time: "", ampm: "", date: "" };
 
-  if (isLoading) return <LoadingSkeleton />
-  if (!order) return <NotFoundState router={router} branch={branch} />
+  // ── render guards ─────────────────────────────────────────────────────────
+  if (loading) return <LoadingSkeleton />;
+  if (notFound) return <NotFoundState router={router} branch={branch} />;
+  if (!order) return <LoadingSkeleton />; // fetch resolved but order not yet in state (edge case)
 
-  const stepStates: [StepState, StepState, StepState] = isReady
-    ? ['done', 'done', 'active']
-    : ['done', 'active', 'pending']
+  const stepStates: [StepState, StepState, StepState] = isCancelled
+    ? ["done", "cancelled", "cancelled"]
+    : isReady
+      ? ["done", "done", "active"]
+      : ["done", "active", "pending"];
+
+  const headerBg = isCancelled ? "#c62828" : "var(--color-primary-600)";
 
   return (
-    <div className="min-h-screen" style={{ background: '#f0faf4' }}>
-      {/* ── Header ── */}
-      <div
-        className="relative overflow-hidden px-5 pt-10 pb-14"
-        style={{ background: GREEN }}
-      >
-        {/* decorative circles */}
-        <div className="absolute -top-16 -right-16 w-44 h-44 rounded-full pointer-events-none"
-          style={{ background: 'rgba(255,255,255,0.07)' }} />
-        <div className="absolute -bottom-8 -left-8 w-28 h-28 rounded-full pointer-events-none"
-          style={{ background: 'rgba(255,255,255,0.05)' }} />
-
+    <div className="min-h-screen bg-gray-50 pb-8">
+      {/* Header */}
+      <div className="relative px-5 pt-10 pb-14 rounded-b-3xl overflow-hidden" style={{ background: headerBg, boxShadow: "var(--shadow-header)" }}>
+        <div className="absolute -top-10 -right-10 w-36 h-36 rounded-full pointer-events-none" style={{ background: "rgba(255,255,255,0.07)" }} />
         <button
-          onClick={() => router.push(`/${branch}`)}
-          className="relative z-10 flex items-center gap-2 mb-6 px-4 py-1.5 rounded-full text-sm font-semibold transition-colors"
-          style={{ background: 'rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.85)', border: 'none' }}
+          onClick={() => router.push(`/${branch}/orders`)}
+          className="relative z-10 flex items-center gap-2 mb-6 px-4 py-1.5 rounded-full text-sm font-semibold text-white"
+          style={{ background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.25)" }}
         >
           <MdArrowBack className="w-4 h-4" /> Back
         </button>
 
         <AnimatePresence mode="wait">
-          {isReady ? (
-            <motion.div key="ready" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }}>
-              <div className="flex items-center gap-2 mb-4">
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold"
-                  style={{ background: 'rgba(255,255,255,0.18)', color: '#fff', border: '1px solid rgba(255,255,255,0.3)' }}>
-                  <span className="w-2 h-2 rounded-full inline-block" style={{ background: '#a8ffb8' }} />
-                  Ready
-                </span>
+          {isCancelled ? (
+            <motion.div key="cancelled" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full mb-3" style={{ background: "rgba(255,255,255,0.15)", fontSize: 11, fontWeight: 700, color: "#fff", letterSpacing: "0.5px", textTransform: "uppercase" }}>
+                <span className="w-1.5 h-1.5 rounded-full bg-white" /> Cancelled
               </div>
-              <h1 className="text-4xl font-extrabold text-white mb-1" style={{ letterSpacing: '-1px' }}>
-                Order Ready!
-              </h1>
-              <p className="text-sm" style={{ color: 'rgba(255,255,255,0.65)' }}>
-                Your meal is waiting for you
-              </p>
+              <h1 className="text-3xl font-extrabold text-white mb-1" style={{ letterSpacing: "-0.8px" }}>Order Cancelled</h1>
+              <p className="text-white/70 text-sm">This order has been cancelled</p>
+            </motion.div>
+          ) : isReady ? (
+            <motion.div key="ready" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full mb-3" style={{ background: "rgba(255,255,255,0.15)", fontSize: 11, fontWeight: 700, color: "#fff", letterSpacing: "0.5px", textTransform: "uppercase" }}>
+                <span className="w-1.5 h-1.5 rounded-full bg-white" /> Ready
+              </div>
+              <h1 className="text-3xl font-extrabold text-white mb-1" style={{ letterSpacing: "-0.8px" }}>Order Ready!</h1>
+              <p className="text-white/70 text-sm">Your meal is waiting for you</p>
             </motion.div>
           ) : (
-            <motion.div key="waiting" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }}>
-              <div className="flex items-center gap-2 mb-4">
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold"
-                  style={{ background: 'rgba(255,255,255,0.18)', color: '#fff', border: '1px solid rgba(255,255,255,0.3)' }}>
-                  <span className="w-2 h-2 rounded-full inline-block animate-pulse" style={{ background: '#a8ffb8' }} />
-                  {order.status}
-                </span>
+            <motion.div key="waiting" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full mb-3" style={{ background: "rgba(255,255,255,0.15)", fontSize: 11, fontWeight: 700, color: "#fff", letterSpacing: "0.5px", textTransform: "uppercase" }}>
+                <span className="w-1.5 h-1.5 rounded-full bg-white" style={{ animation: "pulse 1.5s ease-in-out infinite" }} />
+                {order.status}
               </div>
-              <h1 className="text-4xl font-extrabold text-white mb-1" style={{ letterSpacing: '-1px' }}>
-                Order Placed
-              </h1>
-              <p className="text-sm" style={{ color: 'rgba(255,255,255,0.65)' }}>
-                We're preparing your meal with care
-              </p>
+              <h1 className="text-3xl font-extrabold text-white mb-1" style={{ letterSpacing: "-0.8px" }}>Order Placed!</h1>
+              <p className="text-white/70 text-sm">We're preparing your meal with care</p>
             </motion.div>
           )}
         </AnimatePresence>
       </div>
 
-      {/* ── Main Card ── */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="mx-4 -mt-8"
-      >
-        <div className="bg-white rounded-3xl overflow-hidden" style={{ boxShadow: '0 4px 24px rgba(26,158,63,0.12)' }}>
-
-          {/* Timer / Ready banner */}
+      {/* Main card */}
+      <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="mx-4 -mt-6 relative z-10">
+        <div className="rounded-2xl overflow-hidden bg-white" style={{ boxShadow: "var(--shadow-card)", border: "1px solid #e8e8e8" }}>
           <AnimatePresence mode="wait">
-            {isReady ? (
-              <motion.div
-                key="ready-banner"
-                initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                className="p-6 text-center"
-                style={{ background: GREEN_D }}
-              >
-                <div className="w-14 h-14 mx-auto mb-3 rounded-full flex items-center justify-center"
-                  style={{ background: 'rgba(255,255,255,0.18)' }}>
-                  <MdCelebration className="w-8 h-8 text-white" />
-                </div>
-                <p className="text-white font-bold text-lg">Your order is ready!</p>
-                <p className="text-sm mt-1" style={{ color: 'rgba(255,255,255,0.65)' }}>
-                  Please pick up at the counter
-                </p>
-              </motion.div>
+            {isCancelled ? (
+              <CancelledBanner key="cb" />
+            ) : isReady ? (
+              <ReadyBanner key="rb" />
             ) : remaining !== null && remaining > 0 ? (
-              <motion.div
-                key="timer-banner"
-                initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                className="p-6 text-center relative overflow-hidden"
-                style={{ background: GREEN }}
-              >
-                <div className="absolute inset-0 pointer-events-none" style={{
-                  backgroundImage: 'repeating-linear-gradient(45deg,transparent,transparent 12px,rgba(255,255,255,0.03) 12px,rgba(255,255,255,0.03) 13px)'
-                }} />
-                <MdTimer className="w-7 h-7 mx-auto mb-2" style={{ color: 'rgba(255,255,255,0.7)' }} />
-                <p className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: 'rgba(255,255,255,0.6)' }}>
-                  Estimated Time
-                </p>
-                <p className="font-extrabold text-white" style={{ fontSize: 52, letterSpacing: '-2px', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
-                  {formatCountdown(remaining)}
-                </p>
-                <p className="text-sm mt-2" style={{ color: 'rgba(255,255,255,0.55)' }}>until your order is ready</p>
+              <motion.div key="timer" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                <TimerDisplay remaining={remaining} />
               </motion.div>
             ) : null}
           </AnimatePresence>
 
-          {/* Progress steps */}
-          <StepRow states={stepStates} />
+          <StepRow states={stepStates} isCancelled={isCancelled} />
 
-          {/* Divider */}
-          <div className="mx-5 h-px" style={{ background: GREEN_L }} />
-
-          {/* Order meta */}
-          <div className="flex items-center justify-between px-5 py-4">
-            <div className="flex items-center gap-2 text-sm" style={{ color: '#5a6a61' }}>
-              <MdAccessTime className="w-4 h-4" style={{ color: GREEN }} />
+          {/* Meta */}
+          <div className="flex items-center justify-between px-5 py-3" style={{ borderBottom: "1px solid #f0f0f0" }}>
+            <span className="flex items-center gap-1.5 text-xs text-gray-400">
+              <MdTimer style={{ fontSize: 13, color: "var(--color-primary-500)" }} />
               {time} {ampm} · {date}
-            </div>
-            <div className="flex gap-2">
-              {[`Table ${order.table_number}`, `#${order.daily_order_number}`].map(tag => (
-                <span key={tag} className="px-3 py-1 rounded-full text-xs font-bold"
-                  style={{ background: GREEN_L, color: GREEN_XD }}>
+            </span>
+            <div className="flex gap-1.5">
+              {[`Table ${order.table_number}`, `#${order.daily_order_number}`].map((tag) => (
+                <span key={tag} className="px-2.5 py-1 rounded-xl font-semibold text-primary-700 bg-primary-50" style={{ fontSize: 11, border: "1px solid var(--color-primary-100)" }}>
                   {tag}
                 </span>
               ))}
             </div>
           </div>
 
-          {/* Divider */}
-          <div className="mx-5 h-px" style={{ background: GREEN_L }} />
+          {/* Items header */}
+          <div className="px-5 pt-4 pb-2 font-bold uppercase text-gray-400" style={{ fontSize: 10, letterSpacing: "2px" }}>
+            Your order · {order.order_items.length} {order.order_items.length === 1 ? "item" : "items"}
+          </div>
 
           {/* Items */}
-          <div className="px-5 pt-4 pb-2">
-            <p className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: '#aac8b4', letterSpacing: '1.2px' }}>
-              Your Order · {order.order_items.length} {order.order_items.length === 1 ? 'item' : 'items'}
-            </p>
-            <div className="flex flex-col gap-2.5">
-              {order.order_items.map((item) => (
-                <div key={item.id} className="flex items-center gap-3">
-                  <span className="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-extrabold flex-shrink-0"
-                    style={{ background: GREEN_L, color: GREEN }}>
-                    {item.quantity}×
-                  </span>
-                  <span className="flex-1 text-sm font-medium" style={{ color: '#1a2e23' }}>
-                    {item.menu_items.name}
-                  </span>
-                  <span className="text-sm font-bold" style={{ color: '#1a2e23' }}>
-                    ₹{item.price * item.quantity}
-                  </span>
-                </div>
-              ))}
-            </div>
+          <div className="flex flex-col">
+            {order.order_items.map((item) => (
+              <div key={item.id} className="flex items-center gap-2.5 px-5 py-2.5" style={{ borderTop: "1px solid #f5f5f5", opacity: isCancelled ? 0.5 : 1 }}>
+                <span className="w-7 h-7 rounded-lg flex items-center justify-center font-bold shrink-0 text-primary-700 bg-primary-50" style={{ fontSize: 11, border: "1px solid var(--color-primary-100)" }}>
+                  {item.quantity}×
+                </span>
+                <span className="flex-1 font-medium text-gray-800" style={{ fontSize: 14, textDecoration: isCancelled ? "line-through" : "none" }}>
+                  {item.menu_items?.name}
+                </span>
+                <span className="font-semibold text-gray-600" style={{ fontSize: 14, textDecoration: isCancelled ? "line-through" : "none" }}>
+                  ₹{item.price * item.quantity}
+                </span>
+              </div>
+            ))}
           </div>
 
           {/* Total */}
-          <div className="flex items-center justify-between px-5 py-4 mt-3"
-            style={{ background: GREEN_L }}>
-            <div className="flex items-center gap-2 text-sm font-semibold" style={{ color: '#5a6a61' }}>
-              <MdPayment className="w-5 h-5" style={{ color: GREEN }} />
+          <div className="flex items-center justify-between mx-4 my-3 px-5 py-4 rounded-2xl bg-gray-50" style={{ border: "1px solid #e8e8e8" }}>
+            <div className="flex items-center gap-2 text-sm text-gray-400">
+              <MdPayment style={{ fontSize: 16, color: isCancelled ? "#e53935" : "var(--color-primary-500)" }} />
               Total
             </div>
-            <span className="font-extrabold" style={{ fontSize: 28, letterSpacing: '-1px', color: GREEN_XD }}>
+            <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 28, fontWeight: 500, color: isCancelled ? "#e53935" : "var(--color-primary-700)", letterSpacing: "-1px", textDecoration: isCancelled ? "line-through" : "none", opacity: isCancelled ? 0.6 : 1 }}>
               ₹{total}
             </span>
           </div>
 
           {/* CTA */}
-          <div className="px-5 pt-4 pb-6">
+          <div className="px-4 pt-1 pb-5">
             <button
               onClick={() => router.push(`/${branch}`)}
-              className="w-full py-4 rounded-2xl font-bold text-base text-white transition-all active:scale-95"
-              style={{ background: GREEN, border: 'none', letterSpacing: '0.2px' }}
-              onMouseEnter={e => (e.currentTarget.style.background = GREEN_D)}
-              onMouseLeave={e => (e.currentTarget.style.background = GREEN)}
+              className="w-full py-3.5 rounded-xl font-bold text-sm transition-all active:scale-95 text-white"
+              style={{ background: isCancelled ? "#c62828" : "var(--color-primary-600)", boxShadow: "var(--shadow-btn)", border: "none" }}
+              onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.9")}
+              onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
             >
-              {isReady ? 'Back to Menu' : 'Continue to Explore'}
+              Back to Menu
             </button>
-            {!isReady && (
-              <p className="text-center text-xs mt-3" style={{ color: '#aac8b4', fontWeight: 500 }}>
-                We'll update you when your order is ready
+            {!isReady && !isCancelled && (
+              <p className="text-center mt-2.5 text-xs text-gray-300">
+                We'll notify you when your order is ready
               </p>
             )}
           </div>
         </div>
       </motion.div>
-    </div>
-  )
-}
 
-// ─── Not Found ────────────────────────────────────────────────────────────────
-const NotFoundState = ({ router, branch }: { router: any; branch: string }) => (
-  <div className="min-h-screen flex items-center justify-center px-6" style={{ background: '#f0faf4' }}>
-    <div className="text-center">
-      <div className="w-20 h-20 mx-auto mb-5 rounded-full flex items-center justify-center"
-        style={{ background: '#e8f7ed' }}>
-        <MdRestaurant className="w-10 h-10" style={{ color: '#1A9E3F' }} />
-      </div>
-      <h2 className="text-xl font-bold mb-2" style={{ color: '#1a2e23' }}>Order Not Found</h2>
-      <p className="text-sm mb-6" style={{ color: '#5a6a61' }}>This order link seems to be invalid</p>
-      <button
-        onClick={() => router.push(`/${branch}`)}
-        className="px-8 py-3 rounded-xl font-bold text-white text-sm"
-        style={{ background: '#1A9E3F', border: 'none' }}
-      >
-        Back to Menu
-      </button>
+      <QRPanel orderId={order.id} orderNumber={order.daily_order_number} />
+      <div style={{ height: 16 }} />
     </div>
-  </div>
-)
+  );
+}

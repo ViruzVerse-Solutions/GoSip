@@ -127,38 +127,40 @@
     background-size: 800px 100%;
     animation: shimmer 1.6s ease-in-out infinite;
   }
-/* Add to your global.css */
-@keyframes shimmer {
-  0% {
-    background-position: 200% 0;
+
+  /* Add to your global.css */
+  @keyframes shimmer {
+    0% {
+      background-position: 200% 0;
+    }
+
+    100% {
+      background-position: -200% 0;
+    }
   }
-  100% {
-    background-position: -200% 0;
+
+  .animate-shimmer {
+    animation: shimmer 1.5s ease-in-out infinite;
   }
-}
 
-.animate-shimmer {
-  animation: shimmer 1.5s ease-in-out infinite;
-}
+  /* Custom scrollbar styling */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 4px;
+  }
 
-/* Custom scrollbar styling */
-.custom-scrollbar::-webkit-scrollbar {
-  width: 4px;
-}
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 10px;
+  }
 
-.custom-scrollbar::-webkit-scrollbar-track {
-  background: #f1f1f1;
-  border-radius: 10px;
-}
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 10px;
+  }
 
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 10px;
-}
-
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
-}
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+  }
 
   @keyframes shimmer {
     from {
@@ -167,6 +169,20 @@
 
     to {
       background-position: 400px 0;
+    }
+  }
+
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@500&display=swap');
+
+  @keyframes blink-colon {
+
+    0%,
+    100% {
+      opacity: 1;
+    }
+
+    50% {
+      opacity: 0.15;
     }
   }
 }
