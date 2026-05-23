@@ -1,4 +1,4 @@
-// components/menu/TableSelectionModal.tsx
+// components/order/TableSelectionModal.tsx
 'use client'
 
 import { useEffect, useId, useCallback } from 'react'
@@ -15,7 +15,10 @@ interface Props {
   onSelect: (tableNumber: string) => void
 }
 
-// Animation variants for better performance
+// ── Module‑level cache – tables are static, no need to refetch ───────────
+const tablesCache = new Map<string, { id: string; table_number: string }[]>();
+
+// Simplified variants without explicit transition (fixed TS error)
 const backdropVariants = {
   hidden: { opacity: 0 },
   visible: { opacity: 1 },
@@ -23,29 +26,9 @@ const backdropVariants = {
 }
 
 const modalVariants = {
-  hidden: { y: '100%', opacity: 0, transition: { type: 'spring', damping: 50, stiffness: 500 } },
-  visible: { 
-    y: 0, 
-    opacity: 1, 
-    transition: { 
-      type: 'spring', 
-      stiffness: 500, 
-      damping: 40,
-      mass: 0.8
-    } 
-  },
-  exit: { 
-    y: '100%', 
-    opacity: 0, 
-    transition: { duration: 0.2, ease: 'easeOut' } 
-  }
-}
-
-// Desktop variant for better UX
-const desktopModalVariants = {
-  hidden: { scale: 0.95, opacity: 0, y: 20 },
-  visible: { scale: 1, opacity: 1, y: 0 },
-  exit: { scale: 0.95, opacity: 0, y: 20 }
+  hidden: { y: '100%', opacity: 0 },
+  visible: { y: 0, opacity: 1 },
+  exit: { y: '100%', opacity: 0 }
 }
 
 const tableButtonVariants = {
@@ -53,7 +36,6 @@ const tableButtonVariants = {
   hover: { scale: 1.02, transition: { duration: 0.1 } }
 }
 
-// Skeleton component with shimmer effect
 function TableSkeleton() {
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
@@ -68,7 +50,6 @@ function TableSkeleton() {
   )
 }
 
-// Empty state component
 function EmptyState() {
   return (
     <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
@@ -76,14 +57,11 @@ function EmptyState() {
         <MdRestaurant className="w-8 h-8 text-gray-400" />
       </div>
       <h3 className="text-gray-900 font-medium mb-1">No tables available</h3>
-      <p className="text-sm text-gray-500">
-        No tables are set up for this branch yet.
-      </p>
+      <p className="text-sm text-gray-500">No tables are set up for this branch yet.</p>
     </div>
   )
 }
 
-// Error state component
 function ErrorState({ onRetry }: { onRetry: () => void }) {
   return (
     <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
@@ -91,9 +69,7 @@ function ErrorState({ onRetry }: { onRetry: () => void }) {
         <MdErrorOutline className="w-8 h-8 text-red-500" />
       </div>
       <h3 className="text-gray-900 font-medium mb-1">Failed to load tables</h3>
-      <p className="text-sm text-gray-500 mb-4">
-        There was an error loading the tables. Please try again.
-      </p>
+      <p className="text-sm text-gray-500 mb-4">There was an error loading the tables. Please try again.</p>
       <button
         onClick={onRetry}
         className="px-4 py-2 text-sm font-medium text-primary-600 hover:text-primary-700 
@@ -110,19 +86,24 @@ export default function TableSelectionModal({ branchId, isOpen, onClose, onSelec
 
   const { data: tables, isLoading, error, mutate } = useSWR(
     isOpen ? `tables-${branchId}` : null,
-    () => fetchTablesByBranch(branchId),
-    { 
+    async () => {
+      // Return from cache if available
+      if (tablesCache.has(branchId)) return tablesCache.get(branchId)!;
+      const data = await fetchTablesByBranch(branchId);
+      tablesCache.set(branchId, data);   // store for next time
+      return data;
+    },
+    {
       revalidateOnFocus: false,
       revalidateOnReconnect: false,
-      dedupingInterval: 60000, // Dedupe requests within 1 minute
-      errorRetryCount: 2
+      dedupingInterval: 60000,
+      errorRetryCount: 2,
     }
   )
 
-  // Handle escape key and body scroll with cleanup
+  // Handle escape key and body scroll
   useEffect(() => {
     if (!isOpen) return
-
     const originalStyle = window.getComputedStyle(document.body).overflow
     document.body.style.overflow = 'hidden'
 
@@ -143,14 +124,13 @@ export default function TableSelectionModal({ branchId, isOpen, onClose, onSelec
   }, [onSelect, onClose])
 
   const handleRetry = useCallback(() => {
+    tablesCache.delete(branchId)   // force refetch
     mutate()
-  }, [mutate])
+  }, [mutate, branchId])
 
   const renderContent = () => {
     if (isLoading) return <TableSkeleton />
-    
     if (error) return <ErrorState onRetry={handleRetry} />
-    
     if (!tables || tables.length === 0) return <EmptyState />
 
     return (
@@ -210,15 +190,14 @@ export default function TableSelectionModal({ branchId, isOpen, onClose, onSelec
             initial="hidden"
             animate="visible"
             exit="exit"
+            transition={{ type: 'spring', stiffness: 500, damping: 40, mass: 0.8 }}
             className="fixed z-50 w-full bottom-0 left-0 right-0
                        sm:inset-0 sm:m-auto sm:max-w-md sm:w-full sm:h-fit
                        bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl"
           >
             <div className="p-5">
-              {/* Drag handle */}
               <div className="w-12 h-1 bg-gray-200 rounded-full mx-auto mb-4 sm:hidden" />
               
-              {/* Header */}
               <div className="flex items-center justify-between mb-5 pb-2 border-b border-gray-100">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-600 
@@ -247,12 +226,10 @@ export default function TableSelectionModal({ branchId, isOpen, onClose, onSelec
                 </button>
               </div>
 
-              {/* Content area */}
               <div className="min-h-[240px]">
                 {renderContent()}
               </div>
 
-              {/* Cancel button */}
               <button
                 onClick={onClose}
                 className="w-full mt-4 py-3 rounded-xl text-sm font-medium text-gray-600
