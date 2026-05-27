@@ -1,3 +1,5 @@
+//app/[branch]/layout.tsx
+
 import { notFound } from 'next/navigation'
 import { fetchBranchBySlug, fetchMenuByBranch, fetchSignatureItems } from '@/lib/services/menu.service'
 import { BranchProvider } from '@/lib/context/branch-context'

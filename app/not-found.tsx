@@ -1,3 +1,5 @@
+//app/not-found.tsx
+
 import Link from 'next/link'
 import { Cormorant_Garamond, DM_Mono } from 'next/font/google'
 

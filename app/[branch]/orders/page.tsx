@@ -1,3 +1,5 @@
+//app/[branch]/orders/page.tsx
+
 "use client";
 
 import { useEffect, useState, useRef } from "react";
@@ -14,12 +16,40 @@ import {
   MdAccessTime,
 } from "react-icons/md";
 
-const STATUS_LABEL: Record<string, { label: string; color: string; bg: string; border: string }> = {
-  pending:   { label: "Pending",   color: "#b45309", bg: "#fffbeb", border: "#fde68a" },
-  preparing: { label: "Preparing", color: "#0369a1", bg: "#eff6ff", border: "#bfdbfe" },
-  ready:     { label: "Ready!",    color: "#15803d", bg: "#f0fdf4", border: "#bbf7d0" },
-  delivered: { label: "Delivered", color: "#6b7280", bg: "#f9fafb", border: "#e5e7eb" },
-  cancelled: { label: "Cancelled", color: "#b91c1c", bg: "#fff1f2", border: "#fecdd3" },
+const STATUS_LABEL: Record<
+  string,
+  { label: string; color: string; bg: string; border: string }
+> = {
+  pending: {
+    label: "Pending",
+    color: "#b45309",
+    bg: "#fffbeb",
+    border: "#fde68a",
+  },
+  preparing: {
+    label: "Preparing",
+    color: "#0369a1",
+    bg: "#eff6ff",
+    border: "#bfdbfe",
+  },
+  ready: {
+    label: "Ready!",
+    color: "#15803d",
+    bg: "#f0fdf4",
+    border: "#bbf7d0",
+  },
+  delivered: {
+    label: "Delivered",
+    color: "#6b7280",
+    bg: "#f9fafb",
+    border: "#e5e7eb",
+  },
+  cancelled: {
+    label: "Cancelled",
+    color: "#b91c1c",
+    bg: "#fff1f2",
+    border: "#fecdd3",
+  },
 };
 
 function placedAt(orderPlacedAt: number): string {
@@ -46,6 +76,11 @@ export default function OrdersHistoryPage() {
   // Track which orderIds we're already subscribed to
   const subscribedIds = useRef<Set<string>>(new Set());
   const unsubscribeFns = useRef<Map<string, () => void>>(new Map());
+  const updateOrderStatusRef = useRef(updateOrderStatus);
+
+  useEffect(() => {
+    updateOrderStatusRef.current = updateOrderStatus;
+  }, [updateOrderStatus]);
 
   // Tick for timeAgo refresh
   useEffect(() => {
@@ -61,11 +96,12 @@ export default function OrdersHistoryPage() {
 
       subscribedIds.current.add(order.orderId);
 
-      const unsub = subscribeToOrder(order.orderId, (updated) => {
-        if (updated.status) {
-          updateOrderStatus(order.orderId, updated.status);
-        }
-      });
+const unsub = subscribeToOrder(order.orderId, (updated) => {
+  console.log("[Orders] realtime fired:", order.orderId, updated); // ← add this
+  if (updated.status) {
+    updateOrderStatusRef.current(order.orderId, updated.status);
+  }
+});
 
       unsubscribeFns.current.set(order.orderId, unsub);
     });
@@ -95,28 +131,42 @@ export default function OrdersHistoryPage() {
   );
 
   return (
-    <div className="min-h-screen pb-28 bg-gray-50">
+    <div className="min-h-screen pb-32 bg-gray-50">
       {/* Header */}
       <div
         className="bg-primary-600 text-white px-5 pt-10 pb-14 rounded-b-3xl relative overflow-hidden"
         style={{ boxShadow: "var(--shadow-header)" }}
       >
-        <div className="absolute -top-10 -right-10 w-36 h-36 rounded-full" style={{ background: "rgba(255,255,255,0.06)" }} />
+        <div
+          className="absolute -top-10 -right-10 w-36 h-36 rounded-full"
+          style={{ background: "rgba(255,255,255,0.06)" }}
+        />
 
         <button
           onClick={() => router.push(`/${branchSlug}`)}
           className="relative z-10 flex items-center gap-2 mb-6 px-4 py-1.5 rounded-full text-sm font-semibold"
-          style={{ background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.2)" }}
+          style={{
+            background: "rgba(255,255,255,0.15)",
+            border: "1px solid rgba(255,255,255,0.2)",
+          }}
         >
           <MdArrowBack className="w-4 h-4" /> Back
         </button>
 
         <div className="relative flex items-center gap-3">
-          <div className="w-11 h-11 rounded-2xl flex items-center justify-center" style={{ background: "rgba(255,255,255,0.15)" }}>
+          <div
+            className="w-11 h-11 rounded-2xl flex items-center justify-center"
+            style={{ background: "rgba(255,255,255,0.15)" }}
+          >
             <MdReceipt style={{ fontSize: 22, color: "#fff" }} />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-white" style={{ letterSpacing: "-0.5px" }}>Your Orders</h1>
+            <h1
+              className="text-2xl font-bold text-white"
+              style={{ letterSpacing: "-0.5px" }}
+            >
+              Your Orders
+            </h1>
             <p className="text-white/70 text-sm">
               {activeOrders.length > 0
                 ? `${activeOrders.length} order${activeOrders.length !== 1 ? "s" : ""}`
@@ -127,7 +177,7 @@ export default function OrdersHistoryPage() {
       </div>
 
       {/* List */}
-      <div className="max-w-lg mx-auto px-4 -mt-6 relative z-10 space-y-3">
+      <div className="max-w-lg mx-auto px-4 -mt-6 relative z-10 space-y-3 pb-6">
         {sortedOrders.length === 0 ? (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
@@ -138,12 +188,17 @@ export default function OrdersHistoryPage() {
             <div className="w-14 h-14 rounded-full flex items-center justify-center mb-3 bg-gray-100">
               <MdInbox style={{ fontSize: 26, color: "#9E9E9E" }} />
             </div>
-            <p className="font-semibold text-gray-400 text-sm mb-1">No orders yet</p>
-            <p className="text-xs text-gray-300">Orders you place will appear here</p>
+            <p className="font-semibold text-gray-400 text-sm mb-1">
+              No orders yet
+            </p>
+            <p className="text-xs text-gray-300">
+              Orders you place will appear here
+            </p>
           </motion.div>
         ) : (
           sortedOrders.map((order, i) => {
-            const statusStyle = STATUS_LABEL[order.status ?? "pending"] ?? STATUS_LABEL.pending;
+            const statusStyle =
+              STATUS_LABEL[order.status ?? "pending"] ?? STATUS_LABEL.pending;
             return (
               <motion.button
                 key={order.token}
@@ -151,12 +206,17 @@ export default function OrdersHistoryPage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.06 }}
                 whileTap={{ scale: 0.98 }}
-                onClick={() => router.push(`/${branchSlug}/order/${order.token}`)}
+                onClick={() =>
+                  router.push(`/${branchSlug}/order/${order.token}`)
+                }
                 className="w-full text-left bg-white rounded-2xl overflow-hidden transition-shadow hover:shadow-md"
                 style={{ boxShadow: "var(--shadow-card)" }}
               >
                 {/* Top row */}
-                <div className="flex items-center justify-between px-5 pt-4 pb-3" style={{ borderBottom: "1px solid #f5f5f5" }}>
+                <div
+                  className="flex items-center justify-between px-5 pt-4 pb-3"
+                  style={{ borderBottom: "1px solid #f5f5f5" }}
+                >
                   <div className="flex items-center gap-2">
                     <span className="font-bold text-primary-600 text-base">
                       Order #{order.dailyOrderNumber}
@@ -174,7 +234,8 @@ export default function OrdersHistoryPage() {
                 <div className="flex items-center justify-between px-5 py-3">
                   <span className="flex items-center gap-1 text-xs text-gray-400">
                     <MdAccessTime className="w-3.5 h-3.5" />
-                    {placedAt(order.orderPlacedAt)} · {timeAgo(order.orderPlacedAt)}
+                    {placedAt(order.orderPlacedAt)} ·{" "}
+                    {timeAgo(order.orderPlacedAt)}
                   </span>
                   <motion.span
                     key={order.status}
@@ -197,7 +258,7 @@ export default function OrdersHistoryPage() {
       </div>
 
       {/* Footer CTA */}
-      <div className="fixed bottom-0 inset-x-0 bg-white/90 backdrop-blur-sm border-t border-gray-200 px-4 py-3">
+      <div className="fixed bottom-0 inset-x-0 z-50 bg-white/90 backdrop-blur-sm border-t border-gray-200 px-4 py-3">
         <button
           onClick={() => router.push(`/${branchSlug}`)}
           className="w-full max-w-lg mx-auto block bg-primary-600 hover:bg-primary-700 active:scale-[0.98] text-white font-semibold py-3.5 rounded-xl transition-all"

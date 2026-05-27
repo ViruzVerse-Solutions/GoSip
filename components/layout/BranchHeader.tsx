@@ -1,3 +1,5 @@
+//components/layout/BranchHeader.tsx
+
 'use client'
 
 import { memo, useCallback } from 'react'

@@ -1,11 +1,16 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: '*.supabase.co',  // allows all supabase subdomains
+        port: '',
+        pathname: '/storage/v1/object/public/**',  // only allow from public bucket
+      },
+    ],
+  },
 };
-
-module.exports = {
-  allowedDevOrigins: ['10.97.136.79'],
-}
 
 export default nextConfig;
