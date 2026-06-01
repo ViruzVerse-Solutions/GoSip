@@ -65,7 +65,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   // Load from localStorage on mount
   useEffect(() => {
-    const saved = localStorage.getItem('cafeaura-cart-ids')
+    const saved = localStorage.getItem('gosip-cart-ids')
     if (saved) {
       try {
         const items = JSON.parse(saved)
@@ -74,7 +74,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
           const isValidSchema = items.every((i: any) => i.itemId !== undefined && i.price !== undefined)
           
           if (!isValidSchema) {
-            localStorage.removeItem('cafeaura-cart-ids')
+            localStorage.removeItem('gosip-cart-ids')
           } else {
             // New schema, restore directly to state
             items.forEach((item: any) => {
@@ -96,7 +96,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   // Save to localStorage when items change, but only after mount
   useEffect(() => {
     if (isMounted) {
-      localStorage.setItem('cafeaura-cart-ids', JSON.stringify(state.items))
+      localStorage.setItem('gosip-cart-ids', JSON.stringify(state.items))
     }
   }, [state.items, isMounted])
 

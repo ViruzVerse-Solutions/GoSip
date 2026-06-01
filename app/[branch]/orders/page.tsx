@@ -26,23 +26,11 @@ const STATUS_LABEL: Record<
     bg: "#fffbeb",
     border: "#fde68a",
   },
-  preparing: {
-    label: "Preparing",
-    color: "#0369a1",
-    bg: "#eff6ff",
-    border: "#bfdbfe",
-  },
-  ready: {
-    label: "Ready!",
+  delivered: {
+    label: "Delivered",
     color: "#15803d",
     bg: "#f0fdf4",
     border: "#bbf7d0",
-  },
-  delivered: {
-    label: "Delivered",
-    color: "#6b7280",
-    bg: "#f9fafb",
-    border: "#e5e7eb",
   },
   cancelled: {
     label: "Cancelled",

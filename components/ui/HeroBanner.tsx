@@ -130,7 +130,7 @@ export default function HeroBanner({ branchId }: { branchId: string }) {
       {/* Signature badge */}
       <div className="absolute top-4 left-4 z-20 flex items-center gap-1.5 bg-white/90 backdrop-blur-sm text-primary-700 text-xs font-bold px-3 py-1.5 rounded-full shadow-sm tracking-wide">
         <PiSealCheckFill className="w-4 h-4 shrink-0" />
-        Chef's Signature
+        {branch?.name ? `${branch.name}'s Signature` : "Chef's Signature"}
       </div>
 
       {/* Veg / non‑veg */}

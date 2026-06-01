@@ -6,7 +6,6 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { MdTableBar, MdClose, MdRestaurant, MdErrorOutline } from 'react-icons/md'
 import { IoTabletLandscape } from 'react-icons/io5'
 import useSWR from 'swr'
-import { fetchTablesByBranch } from '@/lib/services/menu.service'
 
 interface Props {
   branchId: string
@@ -84,12 +83,14 @@ function ErrorState({ onRetry }: { onRetry: () => void }) {
 export default function TableSelectionModal({ branchId, isOpen, onClose, onSelect }: Props) {
   const titleId = useId()
 
-  const { data: tables, isLoading, error, mutate } = useSWR(
+  const { data: tables, isLoading, error, mutate } = useSWR<{ id: string; table_number: string }[]>(
     isOpen ? `tables-${branchId}` : null,
     async () => {
       // Return from cache if available
       if (tablesCache.has(branchId)) return tablesCache.get(branchId)!;
-      const data = await fetchTablesByBranch(branchId);
+      const res = await fetch(`/api/tables/${branchId}`);
+      if (!res.ok) throw new Error('Failed to fetch tables');
+      const data = await res.json();
       tablesCache.set(branchId, data);   // store for next time
       return data;
     },

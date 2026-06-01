@@ -40,7 +40,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   // Load from localStorage on mount
   useEffect(() => {
     try {
-      const savedSession = localStorage.getItem("cafeaura-session");
+      const savedSession = localStorage.getItem("gosip-session");
       if (savedSession) {
         const { token, table } = JSON.parse(savedSession);
         setSessionToken(token);
@@ -85,14 +85,14 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     const token = uuidv4();
     setSessionToken(token);
     setTableNumber(table);
-    localStorage.setItem("cafeaura-session", JSON.stringify({ token, table }));
+    localStorage.setItem("gosip-session", JSON.stringify({ token, table }));
   };
 
   const clearSession = () => {
     setSessionToken(null);
     setTableNumber(null);
     setActiveOrders([]);
-    localStorage.removeItem("cafeaura-session");
+    localStorage.removeItem("gosip-session");
     localStorage.removeItem("activeOrders");
   };
 

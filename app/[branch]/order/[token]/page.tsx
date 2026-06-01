@@ -85,13 +85,12 @@ const StepRow = ({
   states,
   isCancelled,
 }: {
-  states: [StepState, StepState, StepState];
+  states: [StepState, StepState];
   isCancelled?: boolean;
 }) => {
   const labels = [
     "Received",
-    "Preparing",
-    isCancelled ? "Cancelled" : "Ready!",
+    isCancelled ? "Cancelled" : "Delivered",
   ];
 
   const stepStyle = (s: StepState) => {
@@ -137,19 +136,6 @@ const StepRow = ({
       strokeLinejoin="round"
     >
       <path d="M20 6L9 17l-5-5" />
-    </svg>,
-    <svg
-      key="fire"
-      width="13"
-      height="13"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M12 2C9 2 7 4 7 6c-2 0-4 2-4 4 0 1.5 1 3 2.5 3.5V20h13v-6.5C20 13 21 11.5 21 10c0-2-2-4-4-4 0-2-2-4-5-4z" />
     </svg>,
     <svg
       key="star"
@@ -213,7 +199,7 @@ const StepRow = ({
                 {labels[i]}
               </span>
             </div>
-            {i < 2 && (
+            {i < 1 && (
               <div
                 className="flex-1 h-0.5 mx-1 mb-5 rounded-sm"
                 style={{
@@ -334,13 +320,13 @@ const TimerDisplay = ({ remaining }: { remaining: number }) => {
         />
       </div>
       <p style={{ fontSize: 12, color: "#9e9e9e" }}>
-        until your order is ready
+        until your order is delivered
       </p>
     </div>
   );
 };
 
-// ─── Ready Banner ──────────────────────────────────────────────────────────────
+// ─── Delivered Banner ──────────────────────────────────────────────────────────────
 const ReadyBanner = () => (
   <motion.div
     initial={{ opacity: 0, scale: 0.97 }}
@@ -369,9 +355,9 @@ const ReadyBanner = () => (
       className="font-extrabold text-gray-900 mb-1"
       style={{ fontSize: 22, letterSpacing: "-0.5px" }}
     >
-      Your order is ready!
+      Order Delivered!
     </p>
-    <p className="text-gray-400 text-sm">Head to the counter to pick it up</p>
+    <p className="text-gray-400 text-sm">Hope you enjoy your meal</p>
   </motion.div>
 );
 
@@ -621,8 +607,7 @@ const unsubscribe = subscribeToOrder(order.id, (updated) => {
   const isCancelled = order?.status === "cancelled";
   const isReady =
     !isCancelled &&
-    (order?.status === "ready" ||
-      order?.status === "delivered" || // admin now uses 'delivered' as final state
+    (order?.status === "delivered" ||
       remaining === 0);
   const total =
     order?.order_items.reduce((sum, i) => sum + i.price * i.quantity, 0) ?? 0;
@@ -635,11 +620,11 @@ const unsubscribe = subscribeToOrder(order.id, (updated) => {
   if (notFound) return <NotFoundState router={router} branch={branch} />;
   if (!order) return <LoadingSkeleton />; // fetch resolved but order not yet in state (edge case)
 
-  const stepStates: [StepState, StepState, StepState] = isCancelled
-    ? ["done", "cancelled", "cancelled"]
+  const stepStates: [StepState, StepState] = isCancelled
+    ? ["done", "cancelled"]
     : isReady
-      ? ["done", "done", "active"]
-      : ["done", "active", "pending"];
+      ? ["done", "done"]
+      : ["done", "pending"];
 
   const headerBg = isCancelled ? "#c62828" : "var(--color-primary-600)";
 
@@ -712,16 +697,16 @@ const unsubscribe = subscribeToOrder(order.id, (updated) => {
                   textTransform: "uppercase",
                 }}
               >
-                <span className="w-1.5 h-1.5 rounded-full bg-white" /> Ready
+                <span className="w-1.5 h-1.5 rounded-full bg-white" /> Delivered
               </div>
               <h1
                 className="text-3xl font-extrabold text-white mb-1"
                 style={{ letterSpacing: "-0.8px" }}
               >
-                Order Ready!
+                Enjoy your meal!
               </h1>
               <p className="text-white/70 text-sm">
-                Your meal is waiting for you
+                Your order has been delivered
               </p>
             </motion.div>
           ) : (
