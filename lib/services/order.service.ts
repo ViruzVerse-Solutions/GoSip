@@ -1,4 +1,4 @@
-import { fetchOrderByToken, subscribeToOrderUpdates } from './menu.service'
+import { subscribeToOrderUpdates } from './menu.service'
 
 export interface PlaceOrderResult {
   token: string
@@ -23,5 +23,17 @@ export async function placeOrder(
   return json as PlaceOrderResult
 }
 
+export async function fetchOrder(token: string) {
+  const res = await fetch(`/api/orders/${token}`, {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json' },
+  })
+  if (!res.ok) {
+    if (res.status === 404) return null
+    throw new Error(`Failed to fetch order (${res.status})`)
+  }
+  return res.json()
+}
+
 // Re-export so UI pages only import from order.service
-export { fetchOrderByToken as fetchOrder, subscribeToOrderUpdates as subscribeToOrder }
+export { subscribeToOrderUpdates as subscribeToOrder }
