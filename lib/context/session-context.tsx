@@ -27,6 +27,7 @@ interface SessionContextType {
   clearSession: () => void;
   addOrder: (order: ActiveOrder) => void;
   updateOrderStatus: (orderId: string, status: string) => void;
+  removeOrder: (orderId: string) => void;
 }
 
 const SessionContext = createContext<SessionContextType | null>(null);
@@ -112,6 +113,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     );
   };
 
+  // Called when admin marks payment as collected — immediately expires this order's session
+  const removeOrder = (orderId: string) => {
+    setActiveOrders((prev) => prev.filter((o) => o.orderId !== orderId));
+  };
+
   return (
     <SessionContext.Provider
       value={{
@@ -122,6 +128,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         clearSession,
         addOrder,
         updateOrderStatus,
+        removeOrder,
       }}
     >
       {children}

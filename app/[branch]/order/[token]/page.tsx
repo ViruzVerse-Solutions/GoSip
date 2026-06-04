@@ -361,6 +361,50 @@ const ReadyBanner = () => (
   </motion.div>
 );
 
+// ─── Collected / Payment Banner ───────────────────────────────────────────────
+const CollectedBanner = ({ countdown }: { countdown: number }) => (
+  <motion.div
+    initial={{ opacity: 0, scale: 0.95 }}
+    animate={{ opacity: 1, scale: 1 }}
+    className="text-center px-5 py-8"
+    style={{ borderBottom: "1px solid #e0f2e9", background: "#f0fdf4" }}
+  >
+    <motion.div
+      initial={{ scale: 0 }}
+      animate={{ scale: 1 }}
+      transition={{ type: "spring", stiffness: 260, damping: 20 }}
+      className="mx-auto mb-4 w-16 h-16 rounded-full flex items-center justify-center"
+      style={{
+        background: "var(--color-primary-50)",
+        border: "2px solid var(--color-primary-300)",
+      }}
+    >
+      <svg width="34" height="34" viewBox="0 0 36 36" fill="none">
+        <motion.path
+          d="M8 18l6 6L28 10"
+          stroke="var(--color-primary-600)"
+          strokeWidth="2.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          initial={{ pathLength: 0 }}
+          animate={{ pathLength: 1 }}
+          transition={{ duration: 0.5, delay: 0.2 }}
+        />
+      </svg>
+    </motion.div>
+    <p
+      className="font-extrabold text-gray-900 mb-1"
+      style={{ fontSize: 22, letterSpacing: "-0.5px" }}
+    >
+      Payment Received!
+    </p>
+    <p className="text-gray-500 text-sm mb-3">Thank you — enjoy your meal 🍃</p>
+    <p style={{ fontSize: 11, color: "#9e9e9e" }}>
+      Redirecting in {countdown}s…
+    </p>
+  </motion.div>
+);
+
 // ─── Cancelled Banner ──────────────────────────────────────────────────────────
 const CancelledBanner = () => (
   <motion.div
@@ -491,7 +535,7 @@ const NotFoundState = ({
 export default function OrderPage() {
   const { branch, token } = useParams<{ branch: string; token: string }>();
   const router = useRouter();
-  const { activeOrders,updateOrderStatus  } = useSession();
+  const { activeOrders, updateOrderStatus, removeOrder } = useSession();
 
   const [order, setOrder] = useState<Order | null>(
     () => orderCache.get(token) ?? null,
@@ -499,7 +543,9 @@ export default function OrderPage() {
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [remaining, setRemaining] = useState<number | null>(null);
+  const [collectCountdown, setCollectCountdown] = useState<number | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const collectTimerRef = useRef<NodeJS.Timeout | null>(null);
   const fetchedRef = useRef(false); // prevents double-fetch in Strict Mode
 
   // ── helpers ──────────────────────────────────────────────────────────────
@@ -568,7 +614,27 @@ useEffect(() => {
 const unsubscribe = subscribeToOrder(order.id, (updated) => {
   console.log("[OrderPage] realtime update:", updated);
   if (updated.status) {
-    updateOrderStatus(order.id, updated.status); // ← add this
+    updateOrderStatus(order.id, updated.status);
+
+    // ── Collected: expire session & auto-redirect ──────────────────────────
+    if (updated.status === "collected") {
+      // Remove order from localStorage immediately so QR is dead
+      removeOrder(order.id);
+      orderCache.delete(token);
+
+      // Countdown 3 → 0 then redirect
+      let count = 3;
+      setCollectCountdown(count);
+      collectTimerRef.current = setInterval(() => {
+        count -= 1;
+        if (count <= 0) {
+          clearInterval(collectTimerRef.current!);
+          router.replace(`/${branch}`);
+        } else {
+          setCollectCountdown(count);
+        }
+      }, 1000);
+    }
   }
   setOrder((prev) => {
     if (!prev) return prev;
@@ -578,8 +644,11 @@ const unsubscribe = subscribeToOrder(order.id, (updated) => {
   });
 });
 
-  return unsubscribe;
-}, [order?.id, token]);
+  return () => {
+    unsubscribe();
+    if (collectTimerRef.current) clearInterval(collectTimerRef.current);
+  };
+}, [order?.id, token, branch, removeOrder, router]);
 
   // 3. Initialise countdown from order timestamp
   useEffect(() => {
@@ -604,9 +673,11 @@ const unsubscribe = subscribeToOrder(order.id, (updated) => {
   }, [remaining]);
 
   // ── derived state ─────────────────────────────────────────────────────────
+  const isCollected = order?.status === "collected";
   const isCancelled = order?.status === "cancelled";
   const isReady =
     !isCancelled &&
+    !isCollected &&
     (order?.status === "delivered" ||
       remaining === 0);
   const total =
@@ -619,6 +690,44 @@ const unsubscribe = subscribeToOrder(order.id, (updated) => {
   if (loading) return <LoadingSkeleton />;
   if (notFound) return <NotFoundState router={router} branch={branch} />;
   if (!order) return <LoadingSkeleton />; // fetch resolved but order not yet in state (edge case)
+
+  // If collected show fullscreen payment confirmation
+  if (isCollected || collectCountdown !== null) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="w-full max-w-sm bg-white rounded-3xl overflow-hidden"
+          style={{ boxShadow: "var(--shadow-card)", border: "1px solid #e8e8e8" }}
+        >
+          <CollectedBanner countdown={collectCountdown ?? 0} />
+          <div className="px-5 py-4">
+            <div
+              className="flex items-center justify-between"
+              style={{ borderBottom: "1px solid #f5f5f5", paddingBottom: 12, marginBottom: 12 }}
+            >
+              <span className="text-sm text-gray-400">Order</span>
+              <span className="font-bold text-gray-700">#{order.daily_order_number}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-gray-400">Amount paid</span>
+              <span
+                style={{
+                  fontFamily: "'DM Mono', monospace",
+                  fontSize: 22,
+                  fontWeight: 600,
+                  color: "var(--color-primary-700)",
+                }}
+              >
+                ₹{order.order_items.reduce((s, i) => s + i.price * i.quantity, 0)}
+              </span>
+            </div>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
 
   const stepStates: [StepState, StepState] = isCancelled
     ? ["done", "cancelled"]
