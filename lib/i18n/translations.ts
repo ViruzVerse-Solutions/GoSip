@@ -52,6 +52,7 @@ export type TranslationKey =
   | 'received' | 'hopeYouEnjoy' | 'thankYouEnjoy' | 'enjoyYourMeal'
   | 'orderHasBeenDelivered' | 'orderHasBeenCancelled' | 'orderLinkInvalid'
   | 'yourOrder' | 'preparingMeal' | 'notifyWhenReady' | 'redirectingInN'
+  | 'orderDelayed' | 'orderDelayedApology'
 
 type Translations = Record<TranslationKey, string>
 type AllTranslations = Record<LanguageCode, Translations>
@@ -140,12 +141,14 @@ export const translations: AllTranslations = {
     thankYouEnjoy:     'Thank you — enjoy your meal 🍃',
     enjoyYourMeal:     'Enjoy your meal!',
     orderHasBeenDelivered: 'Your order has been delivered',
-    orderHasBeenCancelled: 'This order has been cancelled',
+    orderHasBeenCancelled: 'Your order has been cancelled by the admin',
     orderLinkInvalid:  'This order link seems to be invalid',
     yourOrder:         'Your order',
     preparingMeal:     "We're preparing your meal with care",
     notifyWhenReady:   "We'll notify you when your order is ready",
     redirectingInN:    'Redirecting in {n}s…',
+    orderDelayed:      'Delayed',
+    orderDelayedApology: 'We apologize for the delay! Your order is taking slightly longer than estimated. We are preparing it as fast as possible.',
   },
 
   // ── Hindi / हिन्दी ──────────────────────────────────────────────────────────
@@ -231,12 +234,14 @@ export const translations: AllTranslations = {
     thankYouEnjoy:     'धन्यवाद — खाना आनंद लें 🍃',
     enjoyYourMeal:     'खाना आनंद लें!',
     orderHasBeenDelivered: 'आपका ऑर्डर डिलीवर हो गया',
-    orderHasBeenCancelled: 'यह ऑर्डर रद्द कर दिया गया है',
+    orderHasBeenCancelled: 'आपका ऑर्डर एडमिन द्वारा रद्द कर दिया गया है',
     orderLinkInvalid:  'यह ऑर्डर लिंक अमान्य लगता है',
     yourOrder:         'आपका ऑर्डर',
     preparingMeal:     'हम आपका खाना बड़े प्यार से बना रहे हैं',
     notifyWhenReady:   'आपका ऑर्डर तैयार होने पर हम आपको सूचित करेंगे',
     redirectingInN:    '{n} सेकंड में पुनर्निर्देशित हो रहा है…',
+    orderDelayed:      'विलंबित',
+    orderDelayedApology: 'देरी के लिए हम क्षما चाहते हैं! आपका ऑर्डर अनुमानित समय से थोड़ा अधिक समय ले रहा है। हम इसे जल्द से जल्द तैयार कर رہے हैं।',
   },
 
   // ── Tamil / தமிழ் ───────────────────────────────────────────────────────────
@@ -322,12 +327,14 @@ export const translations: AllTranslations = {
     thankYouEnjoy:     'நன்றி — உண்டு மகிழுங்கள் 🍃',
     enjoyYourMeal:     'உண்டு மகிழுங்கள்!',
     orderHasBeenDelivered: 'உங்கள் ஆர்டர் டெலிவரி செய்யப்பட்டது',
-    orderHasBeenCancelled: 'இந்த ஆர்டர் ரத்து செய்யப்பட்டது',
+    orderHasBeenCancelled: 'உங்கள் ஆர்டர் நிர்வாகியால் ரத்து செய்யப்பட்டுள்ளது',
     orderLinkInvalid:  'இந்த ஆர்டர் இணைப்பு தவறானது',
     yourOrder:         'உங்கள் ஆர்டர்',
     preparingMeal:     'உங்கள் உணவை கவனமாக தயாரிக்கிறோம்',
     notifyWhenReady:   'உங்கள் ஆர்டர் தயாரானதும் நாங்கள் உங்களுக்கு அறிவிப்போம்',
     redirectingInN:    '{n} விநாடிகளில் திருப்பி அனுப்புகிறது…',
+    orderDelayed:      'தாமதமானது',
+    orderDelayedApology: 'தாமதத்திற்கு வருந்துகிறோம்! உங்கள் ஆர்டர் மதிப்பிடப்பட்ட நேரத்தை விட சற்று கூடுதல் நேரம் எடுக்கிறது. நாங்கள் அதை கூடிய விரைவில் தயாரித்து வருகிறோம்.',
   },
 
   // ── Malayalam / മലയാളം ──────────────────────────────────────────────────────
@@ -413,12 +420,14 @@ export const translations: AllTranslations = {
     thankYouEnjoy:     'നന്ദി — ഭക്ഷണം ആസ്വദിക്കൂ 🍃',
     enjoyYourMeal:     'ഭക്ഷണം ആസ്വദിക്കൂ!',
     orderHasBeenDelivered: 'നിങ്ങളുടെ ഓർഡർ ഡെലിവർ ചെയ്തു',
-    orderHasBeenCancelled: 'ഈ ഓർഡർ റദ്ദാക്കി',
+    orderHasBeenCancelled: 'നിങ്ങളുടെ ഓർഡർ അഡ്മിൻ റദ്ദാക്കി',
     orderLinkInvalid:  'ഈ ഓർഡർ ലിങ്ക് അസാധുവാണ്',
     yourOrder:         'നിങ്ങളുടെ ഓർഡർ',
     preparingMeal:     'ഞങ്ങൾ നിങ്ങളുടെ ഭക്ഷണം ശ്രദ്ധയോടെ തയ്യാറാക്കുന്നു',
     notifyWhenReady:   'നിങ്ങളുടെ ഓർഡർ തയ്യാറാകുമ്പോൾ ഞങ്ങൾ നിങ്ങളെ അറിയിക്കും',
     redirectingInN:    '{n} സെക്കൻഡിൽ തിരിച്ചുവിടുന്നു…',
+    orderDelayed:      'വൈകുന്നു',
+    orderDelayedApology: 'വൈകിയതിൽ ഞങ്ങൾ ഖേദിക്കുന്നു! നിങ്ങളുടെ ഓർഡറിന് കണക്കാക്കിയതിനേക്കാൾ കൂടുതൽ സമയം എടുക്കുന്നു. ഞങ്ങൾ അത് എത്രയും വേഗം തയ്യാറാക്കുന്നുണ്ട്.',
   },
 
   // ── Telugu / తెలుగు ──────────────────────────────────────────────────────────
@@ -504,12 +513,14 @@ export const translations: AllTranslations = {
     thankYouEnjoy:     'ధన్యవాదాలు — భోజనం ఆనందించండి 🍃',
     enjoyYourMeal:     'భోజనం ఆనందించండి!',
     orderHasBeenDelivered: 'మీ ఆర్డర్ డెలివరీ చేయబడింది',
-    orderHasBeenCancelled: 'ఈ ఆర్డర్ రద్దు చేయబడింది',
+    orderHasBeenCancelled: 'మీ ఆర్డర్ అడ్మిన్ ద్వారా రద్దు చేయబడింది',
     orderLinkInvalid:  'ఈ ఆర్డర్ లింక్ చెల్లదు',
     yourOrder:         'మీ ఆర్డర్',
     preparingMeal:     'మీ భోజనాన్ని శ్రద్ధగా తయారు చేస్తున్నాం',
     notifyWhenReady:   'మీ ఆర్డర్ సిద్ధమైనప్పుడు మేము మీకు తెలియజేస్తాము',
     redirectingInN:    '{n} సెకన్లలో దారి మళ్ళిస్తున్నాం…',
+    orderDelayed:      'ఆలస్యమైంది',
+    orderDelayedApology: 'ఆలస్యానికి క్షమాపణలు! మీ ఆర్డర్ అంచనా వేసిన సమయం కంటే కొంచెం ఎక్కువ సమయం తీసుకుంటోంది. మేము దీనిని వీలైనంత త్వరగా సిద్ధం చేస్తున్నాము.',
   },
 
   // ── Kannada / ಕನ್ನಡ ──────────────────────────────────────────────────────────
@@ -595,12 +606,14 @@ export const translations: AllTranslations = {
     thankYouEnjoy:     'ಧನ್ಯವಾದಗಳು — ಊಟ ಆನಂದಿಸಿ 🍃',
     enjoyYourMeal:     'ಊಟವನ್ನು ಆನಂದಿಸಿ!',
     orderHasBeenDelivered: 'ನಿಮ್ಮ ಆರ್ಡರ್ ಡೆಲಿವರ್ ಮಾಡಲಾಗಿದೆ',
-    orderHasBeenCancelled: 'ಈ ಆರ್ಡರ್ ರದ್ದು ಮಾಡಲಾಗಿದೆ',
+    orderHasBeenCancelled: 'ನಿಮ್ಮ ಆರ್ಡರ್ ಅನ್ನು ಅಡ್ಮಿನ್ ರದ್ದುಗೊಳಿಸಿದ್ದಾರೆ',
     orderLinkInvalid:  'ಈ ಆರ್ಡರ್ ಲಿಂಕ್ ಅಮಾನ್ಯವಾಗಿದೆ',
     yourOrder:         'ನಿಮ್ಮ ಆರ್ಡರ್',
     preparingMeal:     'ನಿಮ್ಮ ಊಟವನ್ನು ಎಚ್ಚರಿಕೆಯಿಂದ ತಯಾರಿಸುತ್ತಿದ್ದೇವೆ',
     notifyWhenReady:   'ನಿಮ್ಮ ಆರ್ಡರ್ ಸಿದ್ಧವಾದಾಗ ನಾವು ನಿಮಗೆ ತಿಳಿಸುತ್ತೇವೆ',
     redirectingInN:    '{n} ಸೆಕೆಂಡ್‌ಗಳಲ್ಲಿ ಮರಳಿ ನಿರ್ದೇಶಿಸಲಾಗುತ್ತಿದೆ…',
+    orderDelayed:      'ವಿಳಂಬವಾಗಿದೆ',
+    orderDelayedApology: 'ವಿಳಂಬಕ್ಕಾಗಿ ನಾವು ಕ್ಷಮೆಯಾಚಿಸುತ್ತೇವೆ! ನಿಮ್ಮ ಆರ್ಡರ್ ಅಂದಾಜು ಸಮಯಕ್ಕಿಂತ ಸ್ವಲ್ಪ ಹೆಚ್ಚು ಸಮಯ ತೆಗೆದುಕೊಳ್ಳುತ್ತಿದೆ. ನಾವು ಇದನ್ನು ಆದಷ್ಟು ಬೇಗ ತಯಾರಿಸುತ್ತಿದ್ದೇವೆ.',
   },
 
   // ── Urdu / اردو ─────────────────────────────────────────────────────────────
@@ -686,11 +699,13 @@ export const translations: AllTranslations = {
     thankYouEnjoy:     'شکریہ — کھانا لطف اٹھائیں 🍃',
     enjoyYourMeal:     'کھانا لطف اٹھائیں!',
     orderHasBeenDelivered: 'آپ کا آرڈر ڈیلیور ہو گیا',
-    orderHasBeenCancelled: 'یہ آرڈر منسوخ کر دیا گیا',
+    orderHasBeenCancelled: 'آپ کا آرڈر ایڈمن نے منسوخ کر دیا ہے',
     orderLinkInvalid:  'یہ آرڈر لنک غلط لگتا ہے',
     yourOrder:         'آپ کا آرڈر',
     preparingMeal:     'ہم آپ کا کھانا محبت سے تیار کر رہے ہیں',
     notifyWhenReady:   'جب آپ کا آرڈر تیار ہو جائے گا تو ہم آپ کو مطلع کریں گے',
     redirectingInN:    '{n} سیکنڈ میں منتقل ہو رہا ہے…',
+    orderDelayed:      'تاخیر',
+    orderDelayedApology: 'تاخیر کے لیے ہم معذرت خواہ ہیں! آپ کے آرڈر میں اندازے سے تھوڑا زیادہ وقت لگ رہا ہے۔ ہم اسے جلد از جلد تیار کر رہے ہیں۔',
   },
 }

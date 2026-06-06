@@ -78,11 +78,19 @@ export default function OrdersHistoryPage() {
     updateOrderStatusRef.current = updateOrderStatus;
   }, [updateOrderStatus]);
 
-  // Synchronize active order statuses from database on mount
+  const syncedRef = useRef(false);
+
+  // Synchronize active order statuses from database once on mount
   useEffect(() => {
+    if (syncedRef.current) return;
+    if (activeOrders.length === 0) return;
+
+    syncedRef.current = true;
     let active = true;
+
     const syncOrders = async () => {
-      for (const order of activeOrders) {
+      const ordersToSync = [...activeOrders];
+      for (const order of ordersToSync) {
         try {
           const data = await fetchOrder(order.token);
           if (!active) return;
@@ -98,13 +106,13 @@ export default function OrdersHistoryPage() {
         }
       }
     };
-    if (activeOrders.length > 0) {
-      syncOrders();
-    }
+
+    syncOrders();
+
     return () => {
       active = false;
     };
-  }, [activeOrders, onOrderCollected]);
+  }, [activeOrders.length, onOrderCollected]);
 
   // Tick for timeAgo refresh
   useEffect(() => {

@@ -219,33 +219,61 @@ const StepRow = ({
 
 // ─── Timer Display ────────────────────────────────────────────────────────────
 const TimerDisplay = ({ remaining }: { remaining: number }) => {
-  const mins = Math.floor(remaining / 60000);
-  const secs = Math.floor((remaining % 60000) / 1000);
-  const progress = Math.min(1 - remaining / ESTIMATE_MS, 1);
   const { t } = useLanguage();
+  const isDelayed = remaining < 0;
+  const absRemaining = Math.abs(remaining);
+  const mins = Math.floor(absRemaining / 60000);
+  const secs = Math.floor((absRemaining % 60000) / 1000);
+  const progress = isDelayed ? 1 : Math.min(1 - remaining / ESTIMATE_MS, 1);
+
+  const themeColor = isDelayed ? "#ea580c" : "var(--color-primary-700)";
+  const themeBg = isDelayed ? "#fff7ed" : "#f8fdf8";
+  const themeBorder = isDelayed ? "#ffedd5" : "#e8e8e8";
 
   return (
     <div
       className="text-center px-5 py-6"
-      style={{ borderBottom: "1px solid #f0f0f0", background: "#f8fdf8" }}
+      style={{
+        borderBottom: "1px solid #f0f0f0",
+        background: themeBg,
+        transition: "all 0.5s ease-in-out",
+      }}
     >
       <div
         className="flex items-center justify-center gap-1.5 mb-4"
         style={{
           fontSize: 10,
           fontWeight: 700,
-          color: "#9e9e9e",
+          color: isDelayed ? "#ea580c" : "#9e9e9e",
           letterSpacing: "2px",
           textTransform: "uppercase",
-          fontFamily: "var(--font-cormorant)"
+          fontFamily: "var(--font-cormorant)",
         }}
       >
         <MdAccessTime
-          style={{ fontSize: 13, color: "var(--color-primary-500)" }}
+          style={{ fontSize: 13, color: isDelayed ? "#ea580c" : "var(--color-primary-500)" }}
         />
-        {t('estimatedWait')}
+        {isDelayed ? t('orderDelayed') : t('estimatedWait')}
       </div>
       <div className="flex items-center justify-center gap-1 mb-1">
+        {isDelayed && (
+          <div
+            className="flex items-center justify-center rounded-xl"
+            style={{
+              width: 36,
+              height: 60,
+              background: "#fff",
+              border: `1px solid ${themeBorder}`,
+              fontFamily: "'DM Mono', monospace",
+              fontSize: 32,
+              fontWeight: 600,
+              color: "#ea580c",
+              boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
+            }}
+          >
+            +
+          </div>
+        )}
         {[pad(mins)[0], pad(mins)[1]].map((d, i) => (
           <div
             key={i}
@@ -254,11 +282,11 @@ const TimerDisplay = ({ remaining }: { remaining: number }) => {
               width: 44,
               height: 60,
               background: "#fff",
-              border: "1px solid #e8e8e8",
+              border: `1px solid ${themeBorder}`,
               fontFamily: "'DM Mono', monospace",
               fontSize: 40,
               fontWeight: 500,
-              color: "var(--color-primary-700)",
+              color: themeColor,
               boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
             }}
           >
@@ -270,7 +298,7 @@ const TimerDisplay = ({ remaining }: { remaining: number }) => {
             fontFamily: "'DM Mono', monospace",
             fontSize: 36,
             fontWeight: 400,
-            color: "#bdbdbd",
+            color: isDelayed ? "#fdba74" : "#bdbdbd",
             padding: "0 3px",
             animation: "blink-colon 1s step-end infinite",
           }}
@@ -285,11 +313,11 @@ const TimerDisplay = ({ remaining }: { remaining: number }) => {
               width: 44,
               height: 60,
               background: "#fff",
-              border: "1px solid #e8e8e8",
+              border: `1px solid ${themeBorder}`,
               fontFamily: "'DM Mono', monospace",
               fontSize: 40,
               fontWeight: 500,
-              color: "var(--color-primary-700)",
+              color: themeColor,
               boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
             }}
           >
@@ -306,6 +334,7 @@ const TimerDisplay = ({ remaining }: { remaining: number }) => {
           textTransform: "uppercase",
         }}
       >
+        {isDelayed && <span style={{ width: 36 }} />}
         <span style={{ width: 90, textAlign: "center" }}>min</span>
         <span style={{ width: 90, textAlign: "center" }}>sec</span>
       </div>
@@ -317,15 +346,21 @@ const TimerDisplay = ({ remaining }: { remaining: number }) => {
           style={{
             height: "100%",
             width: `${progress * 100}%`,
-            background: "var(--color-primary-500)",
+            background: isDelayed ? "#ea580c" : "var(--color-primary-500)",
             borderRadius: 4,
-            transition: "width 1s linear",
+            transition: "width 1s linear, background-color 0.5s ease",
           }}
         />
       </div>
-      <p style={{ fontSize: 12, color: "#9e9e9e" }}>
-        {t('untilDelivered')}
-      </p>
+      {isDelayed ? (
+        <p className="px-4 text-xs font-semibold text-orange-600 leading-relaxed max-w-sm mx-auto animate-pulse">
+          {t('orderDelayedApology')}
+        </p>
+      ) : (
+        <p style={{ fontSize: 12, color: "#9e9e9e" }}>
+          {t('untilDelivered')}
+        </p>
+      )}
     </div>
   );
 };
@@ -583,8 +618,10 @@ export default function OrderPage() {
   useEffect(() => {
     // Already have it in cache — no need to fetch
     if (orderCache.has(token)) {
-      setOrder(orderCache.get(token)!);
-      setLoading(false);
+      setTimeout(() => {
+        setOrder(orderCache.get(token)!);
+        setLoading(false);
+      }, 0);
       return;
     }
 
@@ -673,23 +710,40 @@ const unsubscribe = subscribeToOrder(order.id, (updated) => {
   useEffect(() => {
     if (!order) return;
     const placedAt = new Date(order.created_at).getTime();
-    const newRemaining = Math.max(0, ESTIMATE_MS - (Date.now() - placedAt));
-    setRemaining(newRemaining);
+    const newRemaining = ESTIMATE_MS - (Date.now() - placedAt);
+    setTimeout(() => {
+      setRemaining(newRemaining);
+    }, 0);
   }, [order?.created_at]); // only re-init when the order itself changes, not on every status update
 
-  // 4. Tick countdown
+  // 4. Tick countdown (runs as long as order is not completed/cancelled/collected/delivered)
   useEffect(() => {
-    if (remaining === null || remaining <= 0) {
-      if (timerRef.current) clearInterval(timerRef.current);
+    if (remaining === null) return;
+
+    const isCompleted =
+      order?.status === "delivered" ||
+      order?.status === "collected" ||
+      order?.status === "cancelled";
+
+    if (isCompleted) {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
       return;
     }
+
     timerRef.current = setInterval(() => {
-      setRemaining((prev) => (!prev || prev <= 1000 ? 0 : prev - 1000));
+      setRemaining((prev) => (prev === null ? null : prev - 1000));
     }, 1000);
+
     return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
     };
-  }, [remaining]);
+  }, [remaining, order?.status]);
 
   // ── derived state ─────────────────────────────────────────────────────────
   const isCollected = order?.status === "collected";
@@ -697,8 +751,7 @@ const unsubscribe = subscribeToOrder(order.id, (updated) => {
   const isReady =
     !isCancelled &&
     !isCollected &&
-    (order?.status === "delivered" ||
-      remaining === 0);
+    order?.status === "delivered";
   const total =
     order?.order_items.reduce((sum, i) => sum + i.price * i.quantity, 0) ?? 0;
   const { time, ampm, date } = order
@@ -892,7 +945,7 @@ const unsubscribe = subscribeToOrder(order.id, (updated) => {
               <CancelledBanner key="cb" />
             ) : isReady ? (
               <ReadyBanner key="rb" />
-            ) : remaining !== null && remaining > 0 ? (
+            ) : remaining !== null ? (
               <motion.div
                 key="timer"
                 initial={{ opacity: 0 }}

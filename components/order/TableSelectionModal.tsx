@@ -7,6 +7,8 @@ import { MdTableBar, MdClose, MdRestaurant, MdErrorOutline } from 'react-icons/m
 import { IoTabletLandscape } from 'react-icons/io5'
 import useSWR from 'swr'
 import { useLanguage } from '@/lib/context/language-context'
+import { useSession } from '@/lib/context/session-context'
+import { supabaseBrowser } from '@/lib/supabase/client'
 
 interface Props {
   branchId: string
@@ -85,11 +87,15 @@ function ErrorState({ onRetry }: { onRetry: () => void }) {
 export default function TableSelectionModal({ branchId, isOpen, onClose, onSelect }: Props) {
   const titleId = useId()
   const { t } = useLanguage()
+  const { sessionToken, tableNumber: sessionTableNumber } = useSession()
 
   const { data: tables, isLoading, error, mutate } = useSWR<{ id: string; table_number: string; is_free?: boolean }[]>(
-    isOpen ? `tables-${branchId}` : null,
+    isOpen ? `tables-${branchId}-${sessionToken || ''}` : null,
     async () => {
-      const res = await fetch(`/api/tables/${branchId}`);
+      const url = sessionToken
+        ? `/api/tables/${branchId}?sessionToken=${sessionToken}`
+        : `/api/tables/${branchId}`;
+      const res = await fetch(url);
       if (!res.ok) throw new Error('Failed to fetch tables');
       const data = await res.json();
       return data;
@@ -97,10 +103,42 @@ export default function TableSelectionModal({ branchId, isOpen, onClose, onSelec
     {
       revalidateOnFocus: true,
       revalidateOnReconnect: true,
-      dedupingInterval: 5000, // short dedupe to keep status fresh
+      dedupingInterval: 0, // disable dedupe to always query live status
       errorRetryCount: 2,
     }
   )
+
+  // Revalidate immediately on modal open to clear stale cached state
+  useEffect(() => {
+    if (isOpen) {
+      mutate()
+    }
+  }, [isOpen, mutate])
+
+  // Real-time subscription to order changes to update table occupancy instantly
+  useEffect(() => {
+    if (!isOpen) return
+
+    const channel = supabaseBrowser
+      .channel('table-occupancy-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'orders',
+          filter: `branch_id=eq.${branchId}`,
+        },
+        () => {
+          mutate()
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabaseBrowser.removeChannel(channel)
+    }
+  }, [isOpen, branchId, mutate])
 
   // Handle escape key and body scroll
   useEffect(() => {
@@ -137,36 +175,51 @@ export default function TableSelectionModal({ branchId, isOpen, onClose, onSelec
       <>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6 max-h-[320px] overflow-y-auto 
                         pr-1 custom-scrollbar">
-          {tables.map((table) => (
-            <motion.button
-              key={table.id}
-              disabled={table.is_free === false}
-              variants={tableButtonVariants}
-              whileTap={table.is_free === false ? undefined : "tap"}
-              whileHover={table.is_free === false ? undefined : "hover"}
-              onClick={() => table.is_free !== false && handleSelect(table.table_number)}
-              className={`
-                group relative py-4 px-2 rounded-xl text-center transition-all duration-200
-                focus:outline-none focus:ring-2 focus:ring-offset-2
-                ${table.is_free === false
-                  ? "bg-gray-50 border border-gray-100 text-gray-300 cursor-not-allowed"
-                  : "bg-gradient-to-br from-primary-50 to-primary-100/50 border border-primary-200 hover:border-primary-300 text-primary-700 hover:shadow shadow-sm"
-                }
-              `}
-            >
-              <div className="flex flex-col items-center gap-1">
-                <IoTabletLandscape className={`w-4 h-4 transition-opacity ${
-                  table.is_free === false ? "opacity-30" : "opacity-60 group-hover:opacity-100"
-                }`} />
-                <span className="truncate text-sm">{table.table_number}</span>
-                {table.is_free === false && (
-                  <span className="text-[9px] font-bold uppercase tracking-wider text-red-400 mt-0.5">
-                    Occupied
-                  </span>
-                )}
-              </div>
-            </motion.button>
-          ))}
+          {tables.map((table) => {
+            const isCurrentTable = sessionTableNumber === table.table_number
+            const isSelectable = table.is_free !== false || isCurrentTable
+
+            return (
+              <motion.button
+                key={table.id}
+                disabled={!isSelectable}
+                variants={tableButtonVariants}
+                whileTap={!isSelectable ? undefined : "tap"}
+                whileHover={!isSelectable ? undefined : "hover"}
+                onClick={() => isSelectable && handleSelect(table.table_number)}
+                className={`
+                  group relative py-4 px-2 rounded-xl text-center transition-all duration-200
+                  focus:outline-none focus:ring-2 focus:ring-offset-2
+                  ${isCurrentTable
+                    ? "bg-gradient-to-br from-green-50 to-green-100/50 border-2 border-green-500 text-green-700 hover:shadow shadow-sm"
+                    : !isSelectable
+                      ? "bg-gray-50 border border-gray-100 text-gray-300 cursor-not-allowed"
+                      : "bg-gradient-to-br from-primary-50 to-primary-100/50 border border-primary-200 hover:border-primary-300 text-primary-700 hover:shadow shadow-sm"
+                  }
+                `}
+              >
+                <div className="flex flex-col items-center gap-1">
+                  <IoTabletLandscape className={`w-4 h-4 transition-opacity ${
+                    isCurrentTable
+                      ? "opacity-80 text-green-600"
+                      : !isSelectable
+                        ? "opacity-30"
+                        : "opacity-60 group-hover:opacity-100"
+                  }`} />
+                  <span className="truncate text-sm">{table.table_number}</span>
+                  {isCurrentTable ? (
+                    <span className="text-[9px] font-bold uppercase tracking-wider text-green-600 mt-0.5">
+                      Your Table
+                    </span>
+                  ) : !isSelectable ? (
+                    <span className="text-[9px] font-bold uppercase tracking-wider text-red-400 mt-0.5">
+                      Occupied
+                    </span>
+                  ) : null}
+                </div>
+              </motion.button>
+            )
+          })}
         </div>
         
         <div className="text-center text-xs text-gray-400">

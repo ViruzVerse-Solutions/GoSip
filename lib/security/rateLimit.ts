@@ -34,6 +34,11 @@ const sessionStore = new Map<string, RateLimitEntry>()
 // ── Layer 1: IP Rate Limit ────────────────────────────────────────────────────
 /** Returns true if this IP should be blocked. */
 export function isIpRateLimited(ip: string): boolean {
+  // Bypass IP rate limiting in development to prevent local testing/verification blocks
+  if (process.env.NODE_ENV === 'development') {
+    return false
+  }
+
   const now   = Date.now()
   const entry = ipStore.get(ip)
 

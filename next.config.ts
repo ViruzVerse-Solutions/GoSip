@@ -27,7 +27,7 @@ const nextConfig: NextConfig = {
         headers: [
           {
             key: 'Access-Control-Allow-Origin',
-            value: process.env.NEXT_PUBLIC_ADMIN_ORIGIN ?? 'null',
+            value: process.env.NEXT_PUBLIC_ADMIN_ORIGIN ?? '*',
           },
           {
             key: 'Access-Control-Allow-Methods',

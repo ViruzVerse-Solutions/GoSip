@@ -6,7 +6,10 @@ const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY   ?? ''
 // Custom fetch logger for Server API routes
 const loggedFetch = async (input: RequestInfo | URL, options?: RequestInit) => {
   const start = Date.now()
-  const res = await fetch(input, options)
+  const res = await fetch(input, {
+    ...options,
+    cache: 'no-store',
+  })
   const duration = Date.now() - start
 
   const urlString = input instanceof Request ? input.url : input.toString()

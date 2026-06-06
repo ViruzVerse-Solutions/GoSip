@@ -110,22 +110,30 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Table not found for this branch' }, { status: 400 })
     }
 
+    const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
+
     // ── 6.1. Verify table is not occupied by another active order ─────────────
-    const { data: existingActiveOrder, error: checkOccupiedError } = await supabaseServer
+    const { data: existingActiveOrders, error: checkOccupiedError } = await supabaseServer
       .from('orders')
-      .select('id')
+      .select('id, session_token')
       .eq('branch_id', branchId)
       .eq('table_number', trimmedTable)
       .in('status', ['pending', 'delivered'])
-      .limit(1)
+      .gte('created_at', twoHoursAgo)
 
     if (checkOccupiedError) {
       console.error('[Orders] Table check failed:', checkOccupiedError)
       return NextResponse.json({ error: 'Failed to verify table status' }, { status: 500 })
     }
 
-    if (existingActiveOrder && existingActiveOrder.length > 0) {
-      return NextResponse.json({ error: 'This table is occupied. Please select another table.' }, { status: 409 })
+    if (existingActiveOrders && existingActiveOrders.length > 0) {
+      // Check if any active order belongs to a different session (or has no session token)
+      const hasOtherSessionOrder = existingActiveOrders.some(
+        (order) => !order.session_token || order.session_token !== sessionToken
+      )
+      if (hasOtherSessionOrder) {
+        return NextResponse.json({ error: 'This table is occupied. Please select another table.' }, { status: 409 })
+      }
     }
 
     // ── 7. Parallel: item validation + daily order number ─────────────────────
@@ -190,6 +198,7 @@ export async function POST(req: NextRequest) {
         daily_order_number:  dailyOrderNumber,
         total,
         status:              'pending',
+        session_token:       sessionToken,
       })
       .select('id')
       .single()
