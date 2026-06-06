@@ -21,6 +21,7 @@ type CartAction =
   | { type: 'REMOVE_ITEM'; payload: string }
   | { type: 'UPDATE_QUANTITY'; payload: { itemId: string; quantity: number } }
   | { type: 'CLEAR_CART' }
+  | { type: 'RESTORE_CART'; payload: CartItemData[] }
 
 function cartReducer(state: CartState, action: CartAction): CartState {
   switch (action.type) {
@@ -41,6 +42,8 @@ function cartReducer(state: CartState, action: CartAction): CartState {
     }
     case 'CLEAR_CART':
       return { ...state, items: [] }
+    case 'RESTORE_CART':
+      return { ...state, items: action.payload }
     default:
       return state
   }
@@ -76,19 +79,18 @@ export function CartProvider({ children }: { children: ReactNode }) {
           if (!isValidSchema) {
             localStorage.removeItem('gosip-cart-ids')
           } else {
-            // New schema, restore directly to state
-            items.forEach((item: any) => {
-              dispatch({ 
-                type: 'ADD_ITEM', 
-                payload: { itemId: item.itemId, name: item.name, price: item.price, image_url: item.image_url } 
-              })
-              if (item.quantity > 1) {
-                dispatch({ type: 'UPDATE_QUANTITY', payload: { itemId: item.itemId, quantity: item.quantity } })
-              }
-            })
+            // Restore cart in a single dispatch
+            dispatch({ type: 'RESTORE_CART', payload: items })
           }
         }
-      } catch (e) {}
+      } catch (e) {
+        // Cart data in localStorage is corrupted or from an old schema — discard it safely.
+        // Log in dev so developers notice, silently recover in production.
+        if (process.env.NODE_ENV === 'development') {
+          console.warn('[GoSip] Failed to restore cart from localStorage — clearing:', e)
+        }
+        localStorage.removeItem('gosip-cart-ids')
+      }
     }
     setIsMounted(true)
   }, [])

@@ -135,6 +135,7 @@ export default function CategoryChips({ categories, selected, onSelect }: Props)
 
           return (
             <button
+              suppressHydrationWarning
               key={cat.id}
               ref={setRef(cat.id)}
               role="tab"

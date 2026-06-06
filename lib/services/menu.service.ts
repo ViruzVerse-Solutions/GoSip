@@ -8,17 +8,23 @@ import type {
 
 // ── Branch ──────────────────────────────────────────────────────────────────
 export const fetchBranchBySlug = async (slug: string): Promise<Branch | null> => {
+  const fetchFn = async () => {
+    const { data, error } = await supabaseBrowser
+      .from("branches")
+      .select("id, name, slug, logo_url, is_active")
+      .eq("slug", slug)
+      .eq("is_active", true)
+      .single();
+    if (error) console.error("fetchBranchBySlug error:", error);
+    return (data as Branch) ?? null;
+  };
+
+  if (process.env.NODE_ENV === 'development') {
+    return fetchFn();
+  }
+
   return unstable_cache(
-    async () => {
-      const { data, error } = await supabaseBrowser
-        .from("branches")
-        .select("id, name, slug, logo_url, is_active")
-        .eq("slug", slug)
-        .eq("is_active", true)
-        .single();
-      if (error) console.error("fetchBranchBySlug error:", error);
-      return (data as Branch) ?? null;
-    },
+    fetchFn,
     [`branch-by-slug-v2-${slug}`],
     { revalidate: 3600, tags: ["branch"] }
   )();
@@ -29,31 +35,37 @@ export const fetchMenuByBranch = async (branchId: string): Promise<{
   categories: Category[];
   items: MenuItem[];
 }> => {
+  const fetchFn = async () => {
+    const [categoriesResult, itemsResult] = await Promise.all([
+      supabaseBrowser
+        .from("categories")
+        .select("id, branch_id, name, image_url, sort_order")
+        .eq("branch_id", branchId)
+        .eq("is_visible", true)
+        .order("sort_order"),
+
+      supabaseBrowser
+        .from("menu_items")
+        .select(
+          "id, branch_id, category_id, name, description, price, image_url, is_veg, is_available, is_visible, sort_order",
+        )
+        .eq("branch_id", branchId)
+        .eq("is_visible", true)
+        .order("sort_order"),
+    ]);
+
+    return {
+      categories: (categoriesResult.data || []) as Category[],
+      items: (itemsResult.data || []) as MenuItem[],
+    };
+  };
+
+  if (process.env.NODE_ENV === 'development') {
+    return fetchFn();
+  }
+
   return unstable_cache(
-    async () => {
-      const [categoriesResult, itemsResult] = await Promise.all([
-        supabaseBrowser
-          .from("categories")
-          .select("id, branch_id, name, image_url, sort_order")
-          .eq("branch_id", branchId)
-          .eq("is_visible", true)
-          .order("sort_order"),
-
-        supabaseBrowser
-          .from("menu_items")
-          .select(
-            "id, branch_id, category_id, name, description, price, image_url, is_veg, is_available, is_visible, sort_order",
-          )
-          .eq("branch_id", branchId)
-          .eq("is_visible", true)
-          .order("sort_order"),
-      ]);
-
-      return {
-        categories: (categoriesResult.data || []) as Category[],
-        items: (itemsResult.data || []) as MenuItem[],
-      };
-    },
+    fetchFn,
     [`menu-by-branch-v2-${branchId}`],
     { revalidate: 60, tags: ["menu"] }
   )();
@@ -61,31 +73,39 @@ export const fetchMenuByBranch = async (branchId: string): Promise<{
 
 // ── Signature dishes ─────────────────────────────────────────────────────
 export const fetchSignatureItems = async (branchId: string, limit = 5): Promise<MenuItem[]> => {
+  const fetchFn = async () => {
+    // Get menu items that have 'bestseller' or 'chef_special' tags using an inner join.
+    // This collapses two network queries into a single highly optimized database call.
+    const { data, error } = await supabaseBrowser
+      .from("menu_items")
+      .select(`
+        id, branch_id, category_id, name, description, price, original_price,
+        image_url, is_veg, is_available, is_visible, sort_order, created_at, updated_at,
+        item_tags!inner(tag)
+      `)
+      .eq("branch_id", branchId)
+      .eq("is_visible", true)
+      .eq("is_available", true)
+      .in("item_tags.tag", ["bestseller", "chef_special"])
+      .order("sort_order")
+      .limit(limit);
+
+    if (error) {
+      console.error("fetchSignatureItems error:", error);
+      return [];
+    }
+
+    // Map the result to strip out the nested join data and match the MenuItem type signature.
+    return (data || []).map(({ item_tags, ...item }) => item) as MenuItem[];
+  };
+
+  if (process.env.NODE_ENV === 'development') {
+    return fetchFn();
+  }
+
   return unstable_cache(
-    async () => {
-      // Get items that have the tags 'bestseller' or 'chef_special'
-      const { data: tagRows } = await supabaseBrowser
-        .from("item_tags")
-        .select("item_id")
-        .in("tag", ["bestseller", "chef_special"]);
-
-      if (!tagRows || tagRows.length === 0) return [];
-
-      const itemIds = [...new Set(tagRows.map((r) => r.item_id))];
-
-      const { data: items } = await supabaseBrowser
-        .from("menu_items")
-        .select("id, name, description, price, image_url, is_veg")
-        .in("id", itemIds)
-        .eq("branch_id", branchId)
-        .eq("is_visible", true)
-        .eq("is_available", true)
-        .order("sort_order")
-        .limit(limit);
-
-      return (items || []) as MenuItem[];
-    },
-    [`signature-items-v2-${branchId}-${limit}`],
+    fetchFn,
+    [`signature-items-v3-${branchId}-${limit}`],
     { revalidate: 60, tags: ["menu"] }
   )();
 };

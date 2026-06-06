@@ -10,6 +10,7 @@ import { Pacifico } from 'next/font/google'
 import { MdReceiptLong } from 'react-icons/md'
 
 import { useSession } from '@/lib/context/session-context'
+import LanguageSelector from '@/components/ui/LanguageSelector'
 import type { Branch } from '@/lib/types'
 
 // ─── Font ─────────────────────────────────────────────────────────────────────
@@ -66,6 +67,7 @@ const OrderButton = memo(({ count, slug }: { count: number; slug: string }) => {
 
   return (
     <motion.button
+      suppressHydrationWarning
       onClick={handleClick}
       aria-label={`${count} active order${count !== 1 ? 's' : ''} — view details`}
       whileTap={{ scale: 0.9 }}
@@ -149,10 +151,13 @@ function BranchHeader({ branch }: { branch: Branch }) {
           </div>
         </div>
 
-        {/* Right — active orders */}
-        {activeOrders.length > 0 && (
-          <OrderButton count={activeOrders.length} slug={branch.slug} />
-        )}
+        {/* Right — language selector + active orders */}
+        <div className="flex items-center gap-1">
+          <LanguageSelector />
+          {activeOrders.length > 0 && (
+            <OrderButton count={activeOrders.length} slug={branch.slug} />
+          )}
+        </div>
       </div>
     </motion.header>
   )
