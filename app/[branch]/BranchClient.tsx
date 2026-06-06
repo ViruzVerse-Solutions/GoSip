@@ -12,9 +12,11 @@ import HeroBanner from '@/components/ui/HeroBanner'
 import ItemCard from '@/components/menu/ItemCard'
 import VegFilterChip from '@/components/ui/VegFilterChip'
 import { useBranchData } from '@/lib/context/branch-context'
+import { useLanguage } from '@/lib/context/language-context'
 
 export default function BranchClient() {
   const { branch, categories, items } = useBranchData()
+  const { t } = useLanguage()
   const [search, setSearch] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const [vegFilter, setVegFilter] = useState<'all' | 'veg' | 'nonveg'>('all')
@@ -47,7 +49,7 @@ export default function BranchClient() {
       />
 
       <div className="flex items-center justify-between px-4 mt-4 mb-3">
-        <h2 className="text-lg font-bold text-gray-900">All Items</h2>
+        <h2 className="text-lg font-bold text-gray-900">{t('allItems')}</h2>
         <VegFilterChip value={vegFilter} onChange={setVegFilter} />
       </div>
 
@@ -57,8 +59,8 @@ export default function BranchClient() {
             <ItemCard key={item.id} item={item} branchSlug={branch.slug} />
           ))
         ) : (
-          <p className="text-gray-400 text-sm col-span-full text-center py-12">
-            No items found
+            <p className="text-gray-400 text-sm col-span-full text-center py-12">
+            {t('noItemsFound')}
           </p>
         )}
       </div>

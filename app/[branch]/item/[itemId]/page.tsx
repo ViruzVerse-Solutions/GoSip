@@ -6,6 +6,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { useCart } from '@/lib/context/cart-context'
 import { useBranchData } from '@/lib/context/branch-context'
+import { useLanguage } from '@/lib/context/language-context'
 import SuggestedItems from '@/components/menu/SuggestedItems'
 import QuantityControl from '@/components/ui/QuantityControl'
 import { MdArrowBack, MdShoppingCart, MdOutlineRestaurant } from 'react-icons/md'
@@ -17,6 +18,7 @@ export default function ItemPage() {
   const itemId = params.itemId as string
 
   const { state, dispatch } = useCart()
+  const { t } = useLanguage()
 
   const { items } = useBranchData()
   const item = items.find((i) => i.id === itemId)
@@ -28,7 +30,7 @@ export default function ItemPage() {
   if (!item) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-gray-500">Item not found</div>
+        <div className="text-gray-500">{t('itemNotFound')}</div>
       </div>
     )
   }
@@ -89,11 +91,11 @@ export default function ItemPage() {
                 className="w-full h-12 bg-primary-600 text-white font-bold text-lg rounded-2xl shadow-btn active:scale-95 transition flex items-center justify-center gap-2"
               >
                 <MdShoppingCart className="w-5 h-5" />
-                Add to Cart — ₹{item.price}
+                {t('addToCart')} — ₹{item.price}
               </button>
             ) : (
               <div className="flex items-center justify-between bg-primary-50 p-4 rounded-2xl">
-                <span className="text-gray-700 font-medium">Quantity</span>
+                <span className="text-gray-700 font-medium">{t('quantity')}</span>
                 <QuantityControl
                   quantity={cartQuantity}
                   onIncrease={handleIncrease}
@@ -111,7 +113,7 @@ export default function ItemPage() {
       {isOutOfStock && (
         <div className="fixed bottom-0 left-0 right-0 z-30 bg-red-50 border-t border-red-200 px-5 py-4 flex items-center justify-center gap-2 shadow-[0_-4px_12px_rgba(0,0,0,0.08)]">
           <span className="w-2.5 h-2.5 rounded-full bg-red-400 animate-pulse" />
-          <span className="text-red-600 font-semibold text-sm">This item is currently out of stock</span>
+          <span className="text-red-600 font-semibold text-sm">{t('outOfStock')}</span>
         </div>
       )}
     </div>

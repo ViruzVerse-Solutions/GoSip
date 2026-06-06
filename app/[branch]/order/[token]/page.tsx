@@ -17,6 +17,7 @@ import {
 } from "react-icons/md";
 import { fetchOrder, subscribeToOrder } from "@/lib/services/order.service";
 import { useSession } from "@/lib/context/session-context";
+import { useLanguage } from "@/lib/context/language-context";
 
 const ESTIMATE_MS = 5 * 60 * 1000;
 const MONTHS = [
@@ -88,9 +89,10 @@ const StepRow = ({
   states: [StepState, StepState];
   isCancelled?: boolean;
 }) => {
+  const { t } = useLanguage()
   const labels = [
-    "Received",
-    isCancelled ? "Cancelled" : "Delivered",
+    t('received'),
+    isCancelled ? t('cancelled') : t('delivered'),
   ];
 
   const stepStyle = (s: StepState) => {
@@ -220,6 +222,7 @@ const TimerDisplay = ({ remaining }: { remaining: number }) => {
   const mins = Math.floor(remaining / 60000);
   const secs = Math.floor((remaining % 60000) / 1000);
   const progress = Math.min(1 - remaining / ESTIMATE_MS, 1);
+  const { t } = useLanguage();
 
   return (
     <div
@@ -234,12 +237,13 @@ const TimerDisplay = ({ remaining }: { remaining: number }) => {
           color: "#9e9e9e",
           letterSpacing: "2px",
           textTransform: "uppercase",
+          fontFamily: "var(--font-cormorant)"
         }}
       >
         <MdAccessTime
           style={{ fontSize: 13, color: "var(--color-primary-500)" }}
         />
-        Estimated wait
+        {t('estimatedWait')}
       </div>
       <div className="flex items-center justify-center gap-1 mb-1">
         {[pad(mins)[0], pad(mins)[1]].map((d, i) => (
@@ -320,116 +324,125 @@ const TimerDisplay = ({ remaining }: { remaining: number }) => {
         />
       </div>
       <p style={{ fontSize: 12, color: "#9e9e9e" }}>
-        until your order is delivered
+        {t('untilDelivered')}
       </p>
     </div>
   );
 };
 
 // ─── Delivered Banner ──────────────────────────────────────────────────────────────
-const ReadyBanner = () => (
-  <motion.div
-    initial={{ opacity: 0, scale: 0.97 }}
-    animate={{ opacity: 1, scale: 1 }}
-    className="text-center px-5 py-8"
-    style={{ borderBottom: "1px solid #f0f0f0", background: "#f8fdf8" }}
-  >
-    <div
-      className="mx-auto mb-4 w-16 h-16 rounded-full flex items-center justify-center"
-      style={{
-        background: "var(--color-primary-50)",
-        border: "2px solid var(--color-primary-200)",
-      }}
+const ReadyBanner = () => {
+  const { t } = useLanguage();
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.97 }}
+      animate={{ opacity: 1, scale: 1 }}
+      className="text-center px-5 py-8"
+      style={{ borderBottom: "1px solid #f0f0f0", background: "#f8fdf8" }}
     >
-      <svg width="32" height="32" viewBox="0 0 36 36" fill="none">
-        <path
-          d="M9 18.5L15 24.5L27 12"
-          stroke="var(--color-primary-600)"
-          strokeWidth="2.8"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>
-    </div>
-    <p
-      className="font-extrabold text-gray-900 mb-1"
-      style={{ fontSize: 22, letterSpacing: "-0.5px" }}
-    >
-      Order Delivered!
-    </p>
-    <p className="text-gray-400 text-sm">Hope you enjoy your meal</p>
-  </motion.div>
-);
+      <div
+        className="mx-auto mb-4 w-16 h-16 rounded-full flex items-center justify-center"
+        style={{
+          background: "var(--color-primary-50)",
+          border: "2px solid var(--color-primary-200)",
+        }}
+      >
+        <svg width="32" height="32" viewBox="0 0 36 36" fill="none">
+          <path
+            d="M9 18.5L15 24.5L27 12"
+            stroke="var(--color-primary-600)"
+            strokeWidth="2.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </div>
+      <p
+        className="font-extrabold text-gray-900 mb-1"
+        style={{ fontSize: 22, letterSpacing: "-0.5px" }}
+      >
+        {t('orderDelivered')}
+      </p>
+      <p className="text-gray-400 text-sm">{t('hopeYouEnjoy')}</p>
+    </motion.div>
+  );
+};
 
 // ─── Collected / Payment Banner ───────────────────────────────────────────────
-const CollectedBanner = ({ countdown }: { countdown: number }) => (
-  <motion.div
-    initial={{ opacity: 0, scale: 0.95 }}
-    animate={{ opacity: 1, scale: 1 }}
-    className="text-center px-5 py-8"
-    style={{ borderBottom: "1px solid #e0f2e9", background: "#f0fdf4" }}
-  >
+const CollectedBanner = ({ countdown }: { countdown: number }) => {
+  const { t } = useLanguage();
+  return (
     <motion.div
-      initial={{ scale: 0 }}
-      animate={{ scale: 1 }}
-      transition={{ type: "spring", stiffness: 260, damping: 20 }}
-      className="mx-auto mb-4 w-16 h-16 rounded-full flex items-center justify-center"
-      style={{
-        background: "var(--color-primary-50)",
-        border: "2px solid var(--color-primary-300)",
-      }}
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      className="text-center px-5 py-8"
+      style={{ borderBottom: "1px solid #e0f2e9", background: "#f0fdf4" }}
     >
-      <svg width="34" height="34" viewBox="0 0 36 36" fill="none">
-        <motion.path
-          d="M8 18l6 6L28 10"
-          stroke="var(--color-primary-600)"
-          strokeWidth="2.8"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          initial={{ pathLength: 0 }}
-          animate={{ pathLength: 1 }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-        />
-      </svg>
+      <motion.div
+        initial={{ scale: 0 }}
+        animate={{ scale: 1 }}
+        transition={{ type: "spring", stiffness: 260, damping: 20 }}
+        className="mx-auto mb-4 w-16 h-16 rounded-full flex items-center justify-center"
+        style={{
+          background: "var(--color-primary-50)",
+          border: "2px solid var(--color-primary-300)",
+        }}
+      >
+        <svg width="34" height="34" viewBox="0 0 36 36" fill="none">
+          <motion.path
+            d="M8 18l6 6L28 10"
+            stroke="var(--color-primary-600)"
+            strokeWidth="2.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            initial={{ pathLength: 0 }}
+            animate={{ pathLength: 1 }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+          />
+        </svg>
+      </motion.div>
+      <p
+        className="font-extrabold text-gray-900 mb-1"
+        style={{ fontSize: 22, letterSpacing: "-0.5px" }}
+      >
+        {t('paymentReceived')}
+      </p>
+      <p className="text-gray-500 text-sm mb-3">{t('thankYouEnjoy')}</p>
+      <p style={{ fontSize: 11, color: "#9e9e9e" }}>
+        {t('redirectingInN').replace('{n}', String(countdown))}
+      </p>
     </motion.div>
-    <p
-      className="font-extrabold text-gray-900 mb-1"
-      style={{ fontSize: 22, letterSpacing: "-0.5px" }}
-    >
-      Payment Received!
-    </p>
-    <p className="text-gray-500 text-sm mb-3">Thank you — enjoy your meal 🍃</p>
-    <p style={{ fontSize: 11, color: "#9e9e9e" }}>
-      Redirecting in {countdown}s…
-    </p>
-  </motion.div>
-);
+  );
+};
 
 // ─── Cancelled Banner ──────────────────────────────────────────────────────────
-const CancelledBanner = () => (
-  <motion.div
-    initial={{ opacity: 0, scale: 0.97 }}
-    animate={{ opacity: 1, scale: 1 }}
-    className="text-center px-5 py-7"
-    style={{ borderBottom: "1px solid #ffe0e0", background: "#fff8f8" }}
-  >
-    <div
-      className="mx-auto mb-3 w-14 h-14 rounded-full flex items-center justify-center"
-      style={{ background: "#fff0f0", border: "1.5px solid #ffb3b3" }}
+const CancelledBanner = () => {
+  const { t } = useLanguage();
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.97 }}
+      animate={{ opacity: 1, scale: 1 }}
+      className="text-center px-5 py-7"
+      style={{ borderBottom: "1px solid #ffe0e0", background: "#fff8f8" }}
     >
-      <MdCancel style={{ fontSize: 28, color: "#e53935" }} />
-    </div>
-    <p
-      className="font-extrabold mb-1"
-      style={{ fontSize: 20, color: "#c62828" }}
-    >
-      Order Cancelled
-    </p>
-    <p className="text-sm" style={{ color: "#ef9a9a" }}>
-      This order has been cancelled
-    </p>
-  </motion.div>
-);
+      <div
+        className="mx-auto mb-3 w-14 h-14 rounded-full flex items-center justify-center"
+        style={{ background: "#fff0f0", border: "1.5px solid #ffb3b3" }}
+      >
+        <MdCancel style={{ fontSize: 28, color: "#e53935" }} />
+      </div>
+      <p
+        className="font-extrabold mb-1"
+        style={{ fontSize: 20, color: "#c62828" }}
+      >
+        {t('orderCancelled')}
+      </p>
+      <p className="text-sm" style={{ color: "#ef9a9a" }}>
+        {t('orderHasBeenCancelled')}
+      </p>
+    </motion.div>
+  );
+};
 
 // ─── QR Panel ─────────────────────────────────────────────────────────────────
 const QRPanel = ({
@@ -438,70 +451,73 @@ const QRPanel = ({
 }: {
   orderId: string;
   orderNumber: number;
-}) => (
-  <motion.div
-    initial={{ opacity: 0, y: 8 }}
-    animate={{ opacity: 1, y: 0 }}
-    className="mx-4 mt-3 rounded-2xl overflow-hidden bg-white"
-    style={{ border: "1px solid #e8e8e8", boxShadow: "var(--shadow-card)" }}
-  >
-    <div
-      className="flex items-center gap-2 px-4 py-3"
-      style={{ borderBottom: "1px solid #f0f0f0" }}
+}) => {
+  const { t } = useLanguage();
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="mx-4 mt-3 rounded-2xl overflow-hidden bg-white"
+      style={{ border: "1px solid #e8e8e8", boxShadow: "var(--shadow-card)" }}
     >
-      <MdQrCode style={{ fontSize: 15, color: "var(--color-primary-500)" }} />
-      <span
-        className="font-bold uppercase"
-        style={{ fontSize: 10, letterSpacing: "2px", color: "#9e9e9e" }}
-      >
-        Show to staff at counter
-      </span>
-    </div>
-    <div className="flex items-center gap-5 px-4 py-4">
       <div
-        className="rounded-xl p-2 shrink-0"
-        style={{ background: "#f8f8f8", border: "1px solid #e8e8e8" }}
+        className="flex items-center gap-2 px-4 py-3"
+        style={{ borderBottom: "1px solid #f0f0f0" }}
       >
-        <QRCodeSVG
-          value={orderId}
-          size={84}
-          level="M"
-          bgColor="#f8f8f8"
-          fgColor="#1a1a1a"
-          includeMargin={false}
-        />
-      </div>
-      <div className="flex flex-col gap-1">
-        <p
-          style={{
-            fontSize: 11,
-            color: "#9e9e9e",
-            fontWeight: 600,
-            letterSpacing: "0.5px",
-            textTransform: "uppercase",
-          }}
+        <MdQrCode style={{ fontSize: 15, color: "var(--color-primary-500)" }} />
+        <span
+          className="font-bold uppercase"
+          style={{ fontSize: 10, letterSpacing: "2px", color: "#9e9e9e" }}
         >
-          Order number
-        </p>
-        <p
-          style={{
-            fontFamily: "'DM Mono', monospace",
-            fontSize: 44,
-            fontWeight: 600,
-            color: "var(--color-primary-600)",
-            letterSpacing: "-2px",
-            lineHeight: 1,
-          }}
-        >
-          #{orderNumber}
-        </p>
-        <p style={{ fontSize: 11, color: "#bdbdbd", marginTop: 2 }}>
-          Scan or show order number
-        </p>
+          {t('showToStaff')}
+        </span>
       </div>
-    </div>
-  </motion.div>
-);
+      <div className="flex items-center gap-5 px-4 py-4">
+        <div
+          className="rounded-xl p-2 shrink-0"
+          style={{ background: "#f8f8f8", border: "1px solid #e8e8e8" }}
+        >
+          <QRCodeSVG
+            value={orderId}
+            size={84}
+            level="M"
+            bgColor="#f8f8f8"
+            fgColor="#1a1a1a"
+            includeMargin={false}
+          />
+        </div>
+        <div className="flex flex-col gap-1">
+          <p
+            style={{
+              fontSize: 11,
+              color: "#9e9e9e",
+              fontWeight: 600,
+              letterSpacing: "0.5px",
+              textTransform: "uppercase",
+            }}
+          >
+            {t('orderNumber')}
+          </p>
+          <p
+            style={{
+              fontFamily: "'DM Mono', monospace",
+              fontSize: 44,
+              fontWeight: 600,
+              color: "var(--color-primary-600)",
+              letterSpacing: "-2px",
+              lineHeight: 1,
+            }}
+          >
+            #{orderNumber}
+          </p>
+          <p style={{ fontSize: 11, color: "#bdbdbd", marginTop: 2 }}>
+            {t('scanOrShow')}
+          </p>
+        </div>
+      </div>
+    </motion.div>
+  );
+};
 
 // ─── Not Found ────────────────────────────────────────────────────────────────
 const NotFoundState = ({
@@ -510,32 +526,36 @@ const NotFoundState = ({
 }: {
   router: ReturnType<typeof useRouter>;
   branch: string;
-}) => (
+}) => {
+  const { t } = useLanguage()
+  return (
   <div className="min-h-screen bg-gray-50 flex items-center justify-center px-6">
     <div className="text-center">
       <div className="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center bg-gray-100">
         <MdRestaurant style={{ fontSize: 30, color: "#9e9e9e" }} />
       </div>
-      <h2 className="text-lg font-bold text-gray-700 mb-1">Order Not Found</h2>
+      <h2 className="text-lg font-bold text-gray-700 mb-1">{t('orderNotFound')}</h2>
       <p className="text-sm text-gray-400 mb-5">
-        This order link seems to be invalid
+        {t('orderLinkInvalid')}
       </p>
       <button
         onClick={() => router.push(`/${branch}`)}
         className="px-7 py-3 rounded-xl font-bold text-sm text-white"
         style={{ background: "var(--color-primary-600)" }}
       >
-        Back to Menu
+        {t('backToMenu')}
       </button>
     </div>
   </div>
-);
+  )
+};
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function OrderPage() {
   const { branch, token } = useParams<{ branch: string; token: string }>();
   const router = useRouter();
-  const { activeOrders, updateOrderStatus, removeOrder } = useSession();
+  const { activeOrders, updateOrderStatus, onOrderCollected } = useSession();
+  const { t } = useLanguage();
 
   const [order, setOrder] = useState<Order | null>(
     () => orderCache.get(token) ?? null,
@@ -612,14 +632,13 @@ useEffect(() => {
   if (!order?.id) return;
 
 const unsubscribe = subscribeToOrder(order.id, (updated) => {
-  console.log("[OrderPage] realtime update:", updated);
   if (updated.status) {
     updateOrderStatus(order.id, updated.status);
 
     // ── Collected: expire session & auto-redirect ──────────────────────────
     if (updated.status === "collected") {
-      // Remove order from localStorage immediately so QR is dead
-      removeOrder(order.id);
+      // Remove order AND clear table session — diner has paid, session is over
+      onOrderCollected(order.id);
       orderCache.delete(token);
 
       // Countdown 3 → 0 then redirect
@@ -648,7 +667,7 @@ const unsubscribe = subscribeToOrder(order.id, (updated) => {
     unsubscribe();
     if (collectTimerRef.current) clearInterval(collectTimerRef.current);
   };
-}, [order?.id, token, branch, removeOrder, router]);
+}, [order?.id, token, branch, onOrderCollected, router]);
 
   // 3. Initialise countdown from order timestamp
   useEffect(() => {
@@ -707,11 +726,11 @@ const unsubscribe = subscribeToOrder(order.id, (updated) => {
               className="flex items-center justify-between"
               style={{ borderBottom: "1px solid #f5f5f5", paddingBottom: 12, marginBottom: 12 }}
             >
-              <span className="text-sm text-gray-400">Order</span>
+              <span className="text-sm text-gray-400">{t('order')}</span>
               <span className="font-bold text-gray-700">#{order.daily_order_number}</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-400">Amount paid</span>
+              <span className="text-sm text-gray-400">{t('amountPaid')}</span>
               <span
                 style={{
                   fontFamily: "'DM Mono', monospace",
@@ -806,16 +825,16 @@ const unsubscribe = subscribeToOrder(order.id, (updated) => {
                   textTransform: "uppercase",
                 }}
               >
-                <span className="w-1.5 h-1.5 rounded-full bg-white" /> Delivered
+                <span className="w-1.5 h-1.5 rounded-full bg-white" /> {t('delivered')}
               </div>
               <h1
                 className="text-3xl font-extrabold text-white mb-1"
                 style={{ letterSpacing: "-0.8px" }}
               >
-                Enjoy your meal!
+                {t('enjoyYourMeal')}
               </h1>
               <p className="text-white/70 text-sm">
-                Your order has been delivered
+                {t('orderHasBeenDelivered')}
               </p>
             </motion.div>
           ) : (
@@ -845,10 +864,10 @@ const unsubscribe = subscribeToOrder(order.id, (updated) => {
                 className="text-3xl font-extrabold text-white mb-1"
                 style={{ letterSpacing: "-0.8px" }}
               >
-                Order Placed!
+                {t('orderPlaced')}
               </h1>
               <p className="text-white/70 text-sm">
-                We're preparing your meal with care
+                {t('preparingMeal')}
               </p>
             </motion.div>
           )}
@@ -921,8 +940,8 @@ const unsubscribe = subscribeToOrder(order.id, (updated) => {
             className="px-5 pt-4 pb-2 font-bold uppercase text-gray-400"
             style={{ fontSize: 10, letterSpacing: "2px" }}
           >
-            Your order · {order.order_items.length}{" "}
-            {order.order_items.length === 1 ? "item" : "items"}
+            {t('yourOrder')} · {order.order_items.length}{" "}
+            {order.order_items.length === 1 ? t('item') : t('items')}
           </div>
 
           {/* Items */}
@@ -979,7 +998,7 @@ const unsubscribe = subscribeToOrder(order.id, (updated) => {
                   color: isCancelled ? "#e53935" : "var(--color-primary-500)",
                 }}
               />
-              Total
+              {t('total')}
             </div>
             <span
               style={{
@@ -1011,11 +1030,11 @@ const unsubscribe = subscribeToOrder(order.id, (updated) => {
               onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.9")}
               onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
             >
-              Back to Menu
+              {t('backToMenu')}
             </button>
             {!isReady && !isCancelled && (
               <p className="text-center mt-2.5 text-xs text-gray-300">
-                We'll notify you when your order is ready
+                {t('notifyWhenReady')}
               </p>
             )}
           </div>

@@ -6,7 +6,8 @@ import { useEffect, useState, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { useSession } from "@/lib/context/session-context";
-import { subscribeToOrder } from "@/lib/services/order.service";
+import { useLanguage } from "@/lib/context/language-context";
+import { subscribeToOrder, fetchOrder } from "@/lib/services/order.service";
 import {
   MdArrowBack,
   MdReceipt,
@@ -16,27 +17,33 @@ import {
   MdAccessTime,
 } from "react-icons/md";
 
-const STATUS_LABEL: Record<
+const STATUS_STYLE: Record<
   string,
-  { label: string; color: string; bg: string; border: string }
+  { color: string; bg: string; border: string; labelKey: string }
 > = {
   pending: {
-    label: "Pending",
+    labelKey: 'pending',
     color: "#b45309",
     bg: "#fffbeb",
     border: "#fde68a",
   },
   delivered: {
-    label: "Delivered",
+    labelKey: 'delivered',
     color: "#15803d",
     bg: "#f0fdf4",
     border: "#bbf7d0",
   },
   cancelled: {
-    label: "Cancelled",
+    labelKey: 'cancelled',
     color: "#b91c1c",
     bg: "#fff1f2",
     border: "#fecdd3",
+  },
+  collected: {
+    labelKey: 'collected',
+    color: "#16a34a",
+    bg: "#f0fdf4",
+    border: "#bbf7d0",
   },
 };
 
@@ -47,18 +54,19 @@ function placedAt(orderPlacedAt: number): string {
   return `${String(h % 12 || 12).padStart(2, "0")}:${m} ${h >= 12 ? "PM" : "AM"}`;
 }
 
-function timeAgo(orderPlacedAt: number): string {
-  const diff = Math.floor((Date.now() - orderPlacedAt) / 1000);
-  if (diff < 60) return "just now";
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-  return `${Math.floor(diff / 3600)}h ago`;
-}
-
 export default function OrdersHistoryPage() {
-  const { activeOrders, updateOrderStatus } = useSession();
+  const { activeOrders, updateOrderStatus, onOrderCollected } = useSession();
   const router = useRouter();
   const params = useParams();
   const branchSlug = params.branch as string;
+  const { t } = useLanguage();
+
+  function timeAgoLocale(orderPlacedAt: number): string {
+    const diff = Math.floor((Date.now() - orderPlacedAt) / 1000);
+    if (diff < 60) return t('justNow');
+    if (diff < 3600) return `${Math.floor(diff / 60)}${t('mAgo')}`;
+    return `${Math.floor(diff / 3600)}${t('hAgo')}`;
+  }
 
   const [tick, setTick] = useState(0);
   // Track which orderIds we're already subscribed to
@@ -69,6 +77,34 @@ export default function OrdersHistoryPage() {
   useEffect(() => {
     updateOrderStatusRef.current = updateOrderStatus;
   }, [updateOrderStatus]);
+
+  // Synchronize active order statuses from database on mount
+  useEffect(() => {
+    let active = true;
+    const syncOrders = async () => {
+      for (const order of activeOrders) {
+        try {
+          const data = await fetchOrder(order.token);
+          if (!active) return;
+          if (data && data.status) {
+            if (data.status === "collected") {
+              onOrderCollected(order.orderId);
+            } else {
+              updateOrderStatusRef.current(order.orderId, data.status);
+            }
+          }
+        } catch (err) {
+          console.error(`Failed to sync order ${order.orderId}:`, err);
+        }
+      }
+    };
+    if (activeOrders.length > 0) {
+      syncOrders();
+    }
+    return () => {
+      active = false;
+    };
+  }, [activeOrders, onOrderCollected]);
 
   // Tick for timeAgo refresh
   useEffect(() => {
@@ -85,7 +121,6 @@ export default function OrdersHistoryPage() {
       subscribedIds.current.add(order.orderId);
 
 const unsub = subscribeToOrder(order.orderId, (updated) => {
-  console.log("[Orders] realtime fired:", order.orderId, updated); // ← add this
   if (updated.status) {
     updateOrderStatusRef.current(order.orderId, updated.status);
   }
@@ -138,7 +173,7 @@ const unsub = subscribeToOrder(order.orderId, (updated) => {
             border: "1px solid rgba(255,255,255,0.2)",
           }}
         >
-          <MdArrowBack className="w-4 h-4" /> Back
+          <MdArrowBack className="w-4 h-4" /> {t('back')}
         </button>
 
         <div className="relative flex items-center gap-3">
@@ -153,12 +188,12 @@ const unsub = subscribeToOrder(order.orderId, (updated) => {
               className="text-2xl font-bold text-white"
               style={{ letterSpacing: "-0.5px" }}
             >
-              Your Orders
+              {t('yourOrders')}
             </h1>
             <p className="text-white/70 text-sm">
               {activeOrders.length > 0
-                ? `${activeOrders.length} order${activeOrders.length !== 1 ? "s" : ""}`
-                : "No orders yet"}
+                ? `${activeOrders.length} ${activeOrders.length !== 1 ? t('orders') : t('order')}`
+                : t('noOrdersYet')}
             </p>
           </div>
         </div>
@@ -177,16 +212,17 @@ const unsub = subscribeToOrder(order.orderId, (updated) => {
               <MdInbox style={{ fontSize: 26, color: "#9E9E9E" }} />
             </div>
             <p className="font-semibold text-gray-400 text-sm mb-1">
-              No orders yet
+              {t('noOrdersYet')}
             </p>
             <p className="text-xs text-gray-300">
-              Orders you place will appear here
+              {t('ordersWillAppear')}
             </p>
           </motion.div>
         ) : (
           sortedOrders.map((order, i) => {
             const statusStyle =
-              STATUS_LABEL[order.status ?? "pending"] ?? STATUS_LABEL.pending;
+              STATUS_STYLE[order.status ?? "pending"] ?? STATUS_STYLE.pending;
+            const statusLabel = t(statusStyle.labelKey as Parameters<typeof t>[0]);
             return (
               <motion.button
                 key={order.token}
@@ -212,7 +248,7 @@ const unsub = subscribeToOrder(order.orderId, (updated) => {
                     <span className="w-1 h-1 rounded-full bg-gray-300" />
                     <span className="flex items-center gap-1 text-gray-400 text-xs">
                       <MdTableBar className="w-3.5 h-3.5 text-primary-500" />
-                      Table {order.tableNumber}
+                      {t('table')} {order.tableNumber}
                     </span>
                   </div>
                   <MdChevronRight className="w-5 h-5 text-gray-300" />
@@ -223,7 +259,7 @@ const unsub = subscribeToOrder(order.orderId, (updated) => {
                   <span className="flex items-center gap-1 text-xs text-gray-400">
                     <MdAccessTime className="w-3.5 h-3.5" />
                     {placedAt(order.orderPlacedAt)} ·{" "}
-                    {timeAgo(order.orderPlacedAt)}
+                    {timeAgoLocale(order.orderPlacedAt)}
                   </span>
                   <motion.span
                     key={order.status}
@@ -236,7 +272,7 @@ const unsub = subscribeToOrder(order.orderId, (updated) => {
                       border: `1px solid ${statusStyle.border}`,
                     }}
                   >
-                    {statusStyle.label}
+                    {statusLabel}
                   </motion.span>
                 </div>
               </motion.button>
@@ -252,7 +288,7 @@ const unsub = subscribeToOrder(order.orderId, (updated) => {
           className="w-full max-w-lg mx-auto block bg-primary-600 hover:bg-primary-700 active:scale-[0.98] text-white font-semibold py-3.5 rounded-xl transition-all"
           style={{ boxShadow: "var(--shadow-btn)" }}
         >
-          Back to Menu
+          {t('backToMenu')}
         </button>
       </div>
     </div>

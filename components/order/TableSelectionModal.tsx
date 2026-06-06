@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { MdTableBar, MdClose, MdRestaurant, MdErrorOutline } from 'react-icons/md'
 import { IoTabletLandscape } from 'react-icons/io5'
 import useSWR from 'swr'
+import { useLanguage } from '@/lib/context/language-context'
 
 interface Props {
   branchId: string
@@ -14,8 +15,7 @@ interface Props {
   onSelect: (tableNumber: string) => void
 }
 
-// ── Module‑level cache – tables are static, no need to refetch ───────────
-const tablesCache = new Map<string, { id: string; table_number: string }[]>();
+// No module-level static cache since table occupancy status is highly dynamic
 
 // Simplified variants without explicit transition (fixed TS error)
 const backdropVariants = {
@@ -50,31 +50,33 @@ function TableSkeleton() {
 }
 
 function EmptyState() {
+  const { t } = useLanguage()
   return (
     <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
       <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
         <MdRestaurant className="w-8 h-8 text-gray-400" />
       </div>
-      <h3 className="text-gray-900 font-medium mb-1">No tables available</h3>
-      <p className="text-sm text-gray-500">No tables are set up for this branch yet.</p>
+      <h3 className="text-gray-900 font-medium mb-1">{t('noTablesAvailable')}</h3>
+      <p className="text-sm text-gray-500">{t('noTablesSetup')}</p>
     </div>
   )
 }
 
 function ErrorState({ onRetry }: { onRetry: () => void }) {
+  const { t } = useLanguage()
   return (
     <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
       <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mb-4">
         <MdErrorOutline className="w-8 h-8 text-red-500" />
       </div>
-      <h3 className="text-gray-900 font-medium mb-1">Failed to load tables</h3>
-      <p className="text-sm text-gray-500 mb-4">There was an error loading the tables. Please try again.</p>
+      <h3 className="text-gray-900 font-medium mb-1">{t('failedLoadTables')}</h3>
+      <p className="text-sm text-gray-500 mb-4">{t('errorLoadingTables')}</p>
       <button
         onClick={onRetry}
         className="px-4 py-2 text-sm font-medium text-primary-600 hover:text-primary-700 
                    hover:bg-primary-50 rounded-lg transition-colors"
       >
-        Try Again
+        {t('tryAgain')}
       </button>
     </div>
   )
@@ -82,22 +84,20 @@ function ErrorState({ onRetry }: { onRetry: () => void }) {
 
 export default function TableSelectionModal({ branchId, isOpen, onClose, onSelect }: Props) {
   const titleId = useId()
+  const { t } = useLanguage()
 
-  const { data: tables, isLoading, error, mutate } = useSWR<{ id: string; table_number: string }[]>(
+  const { data: tables, isLoading, error, mutate } = useSWR<{ id: string; table_number: string; is_free?: boolean }[]>(
     isOpen ? `tables-${branchId}` : null,
     async () => {
-      // Return from cache if available
-      if (tablesCache.has(branchId)) return tablesCache.get(branchId)!;
       const res = await fetch(`/api/tables/${branchId}`);
       if (!res.ok) throw new Error('Failed to fetch tables');
       const data = await res.json();
-      tablesCache.set(branchId, data);   // store for next time
       return data;
     },
     {
-      revalidateOnFocus: false,
-      revalidateOnReconnect: false,
-      dedupingInterval: 60000,
+      revalidateOnFocus: true,
+      revalidateOnReconnect: true,
+      dedupingInterval: 5000, // short dedupe to keep status fresh
       errorRetryCount: 2,
     }
   )
@@ -125,9 +125,8 @@ export default function TableSelectionModal({ branchId, isOpen, onClose, onSelec
   }, [onSelect, onClose])
 
   const handleRetry = useCallback(() => {
-    tablesCache.delete(branchId)   // force refetch
     mutate()
-  }, [mutate, branchId])
+  }, [mutate])
 
   const renderContent = () => {
     if (isLoading) return <TableSkeleton />
@@ -141,27 +140,37 @@ export default function TableSelectionModal({ branchId, isOpen, onClose, onSelec
           {tables.map((table) => (
             <motion.button
               key={table.id}
+              disabled={table.is_free === false}
               variants={tableButtonVariants}
-              whileTap="tap"
-              whileHover="hover"
-              onClick={() => handleSelect(table.table_number)}
-              className="group relative py-4 px-2 rounded-xl bg-gradient-to-br from-primary-50 
-                         to-primary-100/50 border border-primary-200 hover:border-primary-300
-                         text-primary-700 font-semibold text-center transition-all duration-200
-                         focus:outline-none focus:ring-2 focus:ring-primary-400 focus:ring-offset-2
-                         shadow-sm hover:shadow"
+              whileTap={table.is_free === false ? undefined : "tap"}
+              whileHover={table.is_free === false ? undefined : "hover"}
+              onClick={() => table.is_free !== false && handleSelect(table.table_number)}
+              className={`
+                group relative py-4 px-2 rounded-xl text-center transition-all duration-200
+                focus:outline-none focus:ring-2 focus:ring-offset-2
+                ${table.is_free === false
+                  ? "bg-gray-50 border border-gray-100 text-gray-300 cursor-not-allowed"
+                  : "bg-gradient-to-br from-primary-50 to-primary-100/50 border border-primary-200 hover:border-primary-300 text-primary-700 hover:shadow shadow-sm"
+                }
+              `}
             >
               <div className="flex flex-col items-center gap-1">
-                <IoTabletLandscape className="w-4 h-4 opacity-60 group-hover:opacity-100 
-                                            transition-opacity" />
+                <IoTabletLandscape className={`w-4 h-4 transition-opacity ${
+                  table.is_free === false ? "opacity-30" : "opacity-60 group-hover:opacity-100"
+                }`} />
                 <span className="truncate text-sm">{table.table_number}</span>
+                {table.is_free === false && (
+                  <span className="text-[9px] font-bold uppercase tracking-wider text-red-400 mt-0.5">
+                    Occupied
+                  </span>
+                )}
               </div>
             </motion.button>
           ))}
         </div>
         
         <div className="text-center text-xs text-gray-400">
-          Showing {tables.length} table{tables.length !== 1 ? 's' : ''}
+          {t('showingTables').replace('{count}', String(tables.length))}
         </div>
       </>
     )
@@ -207,10 +216,10 @@ export default function TableSelectionModal({ branchId, isOpen, onClose, onSelec
                   </div>
                   <div>
                     <h2 id={titleId} className="text-lg font-semibold text-gray-900">
-                      Select your table
+                      {t('selectYourTable')}
                     </h2>
                     <p className="text-xs text-gray-500 mt-0.5">
-                      Choose where you&apos;re seated
+                      {t('chooseSeated')}
                     </p>
                   </div>
                 </div>
@@ -239,7 +248,7 @@ export default function TableSelectionModal({ branchId, isOpen, onClose, onSelec
                          focus:outline-none focus:ring-2 focus:ring-gray-300
                          active:scale-[0.98]"
               >
-                Cancel
+                {t('cancel')}
               </button>
             </div>
           </motion.div>
