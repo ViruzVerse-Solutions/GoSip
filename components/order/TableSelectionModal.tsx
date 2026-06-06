@@ -6,6 +6,9 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { MdTableBar, MdClose, MdRestaurant, MdErrorOutline } from 'react-icons/md'
 import { IoTabletLandscape } from 'react-icons/io5'
 import useSWR from 'swr'
+import { useLanguage } from '@/lib/context/language-context'
+import { useSession } from '@/lib/context/session-context'
+import { supabaseBrowser } from '@/lib/supabase/client'
 
 interface Props {
   branchId: string
@@ -14,8 +17,7 @@ interface Props {
   onSelect: (tableNumber: string) => void
 }
 
-// ── Module‑level cache – tables are static, no need to refetch ───────────
-const tablesCache = new Map<string, { id: string; table_number: string }[]>();
+// No module-level static cache since table occupancy status is highly dynamic
 
 // Simplified variants without explicit transition (fixed TS error)
 const backdropVariants = {
@@ -50,31 +52,33 @@ function TableSkeleton() {
 }
 
 function EmptyState() {
+  const { t } = useLanguage()
   return (
     <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
       <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
         <MdRestaurant className="w-8 h-8 text-gray-400" />
       </div>
-      <h3 className="text-gray-900 font-medium mb-1">No tables available</h3>
-      <p className="text-sm text-gray-500">No tables are set up for this branch yet.</p>
+      <h3 className="text-gray-900 font-medium mb-1">{t('noTablesAvailable')}</h3>
+      <p className="text-sm text-gray-500">{t('noTablesSetup')}</p>
     </div>
   )
 }
 
 function ErrorState({ onRetry }: { onRetry: () => void }) {
+  const { t } = useLanguage()
   return (
     <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
       <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mb-4">
         <MdErrorOutline className="w-8 h-8 text-red-500" />
       </div>
-      <h3 className="text-gray-900 font-medium mb-1">Failed to load tables</h3>
-      <p className="text-sm text-gray-500 mb-4">There was an error loading the tables. Please try again.</p>
+      <h3 className="text-gray-900 font-medium mb-1">{t('failedLoadTables')}</h3>
+      <p className="text-sm text-gray-500 mb-4">{t('errorLoadingTables')}</p>
       <button
         onClick={onRetry}
         className="px-4 py-2 text-sm font-medium text-primary-600 hover:text-primary-700 
                    hover:bg-primary-50 rounded-lg transition-colors"
       >
-        Try Again
+        {t('tryAgain')}
       </button>
     </div>
   )
@@ -82,25 +86,59 @@ function ErrorState({ onRetry }: { onRetry: () => void }) {
 
 export default function TableSelectionModal({ branchId, isOpen, onClose, onSelect }: Props) {
   const titleId = useId()
+  const { t } = useLanguage()
+  const { sessionToken, tableNumber: sessionTableNumber } = useSession()
 
-  const { data: tables, isLoading, error, mutate } = useSWR<{ id: string; table_number: string }[]>(
-    isOpen ? `tables-${branchId}` : null,
+  const { data: tables, isLoading, error, mutate } = useSWR<{ id: string; table_number: string; is_free?: boolean }[]>(
+    isOpen ? `tables-${branchId}-${sessionToken || ''}` : null,
     async () => {
-      // Return from cache if available
-      if (tablesCache.has(branchId)) return tablesCache.get(branchId)!;
-      const res = await fetch(`/api/tables/${branchId}`);
+      const url = sessionToken
+        ? `/api/tables/${branchId}?sessionToken=${sessionToken}`
+        : `/api/tables/${branchId}`;
+      const res = await fetch(url);
       if (!res.ok) throw new Error('Failed to fetch tables');
       const data = await res.json();
-      tablesCache.set(branchId, data);   // store for next time
       return data;
     },
     {
-      revalidateOnFocus: false,
-      revalidateOnReconnect: false,
-      dedupingInterval: 60000,
+      revalidateOnFocus: true,
+      revalidateOnReconnect: true,
+      dedupingInterval: 0, // disable dedupe to always query live status
       errorRetryCount: 2,
     }
   )
+
+  // Revalidate immediately on modal open to clear stale cached state
+  useEffect(() => {
+    if (isOpen) {
+      mutate()
+    }
+  }, [isOpen, mutate])
+
+  // Real-time subscription to order changes to update table occupancy instantly
+  useEffect(() => {
+    if (!isOpen) return
+
+    const channel = supabaseBrowser
+      .channel('table-occupancy-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'orders',
+          filter: `branch_id=eq.${branchId}`,
+        },
+        () => {
+          mutate()
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabaseBrowser.removeChannel(channel)
+    }
+  }, [isOpen, branchId, mutate])
 
   // Handle escape key and body scroll
   useEffect(() => {
@@ -125,9 +163,8 @@ export default function TableSelectionModal({ branchId, isOpen, onClose, onSelec
   }, [onSelect, onClose])
 
   const handleRetry = useCallback(() => {
-    tablesCache.delete(branchId)   // force refetch
     mutate()
-  }, [mutate, branchId])
+  }, [mutate])
 
   const renderContent = () => {
     if (isLoading) return <TableSkeleton />
@@ -138,30 +175,55 @@ export default function TableSelectionModal({ branchId, isOpen, onClose, onSelec
       <>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6 max-h-[320px] overflow-y-auto 
                         pr-1 custom-scrollbar">
-          {tables.map((table) => (
-            <motion.button
-              key={table.id}
-              variants={tableButtonVariants}
-              whileTap="tap"
-              whileHover="hover"
-              onClick={() => handleSelect(table.table_number)}
-              className="group relative py-4 px-2 rounded-xl bg-gradient-to-br from-primary-50 
-                         to-primary-100/50 border border-primary-200 hover:border-primary-300
-                         text-primary-700 font-semibold text-center transition-all duration-200
-                         focus:outline-none focus:ring-2 focus:ring-primary-400 focus:ring-offset-2
-                         shadow-sm hover:shadow"
-            >
-              <div className="flex flex-col items-center gap-1">
-                <IoTabletLandscape className="w-4 h-4 opacity-60 group-hover:opacity-100 
-                                            transition-opacity" />
-                <span className="truncate text-sm">{table.table_number}</span>
-              </div>
-            </motion.button>
-          ))}
+          {tables.map((table) => {
+            const isCurrentTable = sessionTableNumber === table.table_number
+            const isSelectable = table.is_free !== false || isCurrentTable
+
+            return (
+              <motion.button
+                key={table.id}
+                disabled={!isSelectable}
+                variants={tableButtonVariants}
+                whileTap={!isSelectable ? undefined : "tap"}
+                whileHover={!isSelectable ? undefined : "hover"}
+                onClick={() => isSelectable && handleSelect(table.table_number)}
+                className={`
+                  group relative py-4 px-2 rounded-xl text-center transition-all duration-200
+                  focus:outline-none focus:ring-2 focus:ring-offset-2
+                  ${isCurrentTable
+                    ? "bg-gradient-to-br from-green-50 to-green-100/50 border-2 border-green-500 text-green-700 hover:shadow shadow-sm"
+                    : !isSelectable
+                      ? "bg-gray-50 border border-gray-100 text-gray-300 cursor-not-allowed"
+                      : "bg-gradient-to-br from-primary-50 to-primary-100/50 border border-primary-200 hover:border-primary-300 text-primary-700 hover:shadow shadow-sm"
+                  }
+                `}
+              >
+                <div className="flex flex-col items-center gap-1">
+                  <IoTabletLandscape className={`w-4 h-4 transition-opacity ${
+                    isCurrentTable
+                      ? "opacity-80 text-green-600"
+                      : !isSelectable
+                        ? "opacity-30"
+                        : "opacity-60 group-hover:opacity-100"
+                  }`} />
+                  <span className="truncate text-sm">{table.table_number}</span>
+                  {isCurrentTable ? (
+                    <span className="text-[9px] font-bold uppercase tracking-wider text-green-600 mt-0.5">
+                      Your Table
+                    </span>
+                  ) : !isSelectable ? (
+                    <span className="text-[9px] font-bold uppercase tracking-wider text-red-400 mt-0.5">
+                      Occupied
+                    </span>
+                  ) : null}
+                </div>
+              </motion.button>
+            )
+          })}
         </div>
         
         <div className="text-center text-xs text-gray-400">
-          Showing {tables.length} table{tables.length !== 1 ? 's' : ''}
+          {t('showingTables').replace('{count}', String(tables.length))}
         </div>
       </>
     )
@@ -207,10 +269,10 @@ export default function TableSelectionModal({ branchId, isOpen, onClose, onSelec
                   </div>
                   <div>
                     <h2 id={titleId} className="text-lg font-semibold text-gray-900">
-                      Select your table
+                      {t('selectYourTable')}
                     </h2>
                     <p className="text-xs text-gray-500 mt-0.5">
-                      Choose where you&apos;re seated
+                      {t('chooseSeated')}
                     </p>
                   </div>
                 </div>
@@ -239,7 +301,7 @@ export default function TableSelectionModal({ branchId, isOpen, onClose, onSelec
                          focus:outline-none focus:ring-2 focus:ring-gray-300
                          active:scale-[0.98]"
               >
-                Cancel
+                {t('cancel')}
               </button>
             </div>
           </motion.div>

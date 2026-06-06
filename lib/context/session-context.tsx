@@ -1,4 +1,6 @@
 "use client";
+// lib/context/session-context.tsx
+// ── Session — table identity, active orders, time-based auto-expiry ───────────
 
 import {
   createContext,
@@ -9,56 +11,83 @@ import {
 } from "react";
 import { v4 as uuidv4 } from "uuid";
 
+// ── Constants ─────────────────────────────────────────────────────────────────
+/** A table session lives for 4 hours from when the table was first selected. */
+const SESSION_MAX_AGE_MS = 4 * 60 * 60 * 1000  // 4 hours
+
+/** Active orders expire 2 hours after placement. */
+const ORDER_TTL_MS = 2 * 60 * 60 * 1000        // 2 hours (same as cart places)
+
+// ── Types ─────────────────────────────────────────────────────────────────────
 export interface ActiveOrder {
-  token: string;
-  orderId: string;
+  token:            string;
+  orderId:          string;
   dailyOrderNumber: number;
-  expires: number;
-  tableNumber: string;
-  orderPlacedAt: number;
-  status?: string;
+  expires:          number;
+  tableNumber:      string;
+  orderPlacedAt:    number;
+  status?:          string;
 }
 
 interface SessionContextType {
-  sessionToken: string | null;
-  tableNumber: string | null;
-  activeOrders: ActiveOrder[];
-  selectTable: (table: string) => void;
-  clearSession: () => void;
-  addOrder: (order: ActiveOrder) => void;
-  updateOrderStatus: (orderId: string, status: string) => void;
+  sessionToken:     string | null;
+  tableNumber:      string | null;
+  activeOrders:     ActiveOrder[];
+  selectTable:      (table: string) => void;
+  /** Clear the table identity (token + tableNumber) — called after payment collected. */
+  clearTableSession: () => void;
+  /** Full nuclear clear — clears table identity AND all active orders. */
+  clearSession:     () => void;
+  addOrder:         (order: ActiveOrder) => void;
+  updateOrderStatus:(orderId: string, status: string) => void;
+  /** Remove one order AND clear table session (call on 'collected' status). */
+  onOrderCollected: (orderId: string) => void;
+  removeOrder:      (orderId: string) => void;
 }
 
+// ── Context ───────────────────────────────────────────────────────────────────
 const SessionContext = createContext<SessionContextType | null>(null);
 
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [sessionToken, setSessionToken] = useState<string | null>(null);
-  const [tableNumber, setTableNumber] = useState<string | null>(null);
+  const [tableNumber,  setTableNumber]  = useState<string | null>(null);
   const [activeOrders, setActiveOrders] = useState<ActiveOrder[]>([]);
-  const [isMounted, setIsMounted] = useState(false);
+  const [isMounted,    setIsMounted]    = useState(false);
 
-  // Load from localStorage on mount
+  // ── On Mount: restore + validate ─────────────────────────────────────────
   useEffect(() => {
     try {
+      // ── Restore table session ───────────────────────────────────────────
       const savedSession = localStorage.getItem("gosip-session");
       if (savedSession) {
-        const { token, table } = JSON.parse(savedSession);
-        setSessionToken(token);
-        setTableNumber(table);
+        const { token, table, createdAt } = JSON.parse(savedSession);
+
+        // Time-based expiry: clear session if older than SESSION_MAX_AGE_MS
+        const sessionAge = Date.now() - (createdAt ?? 0);
+        if (sessionAge < SESSION_MAX_AGE_MS) {
+          setSessionToken(token);
+          setTableNumber(table);
+        } else {
+          // Session expired — clear it silently
+          localStorage.removeItem("gosip-session");
+        }
       }
 
+      // ── Restore active orders ───────────────────────────────────────────
       const storedOrders = localStorage.getItem("activeOrders");
       if (storedOrders) {
-        let orders = JSON.parse(storedOrders);
+        const orders = JSON.parse(storedOrders);
         if (Array.isArray(orders)) {
-          const now = Date.now();
+          const now         = Date.now();
           const validOrders = orders.filter((o: ActiveOrder) => o.expires > now);
+          // Prune expired orders from storage
           if (validOrders.length !== orders.length) {
             localStorage.setItem("activeOrders", JSON.stringify(validOrders));
           }
           setActiveOrders(validOrders);
         }
       } else {
+        // Migration: old schema used 'lastOrder' key
         const oldStored = localStorage.getItem("lastOrder");
         if (oldStored) {
           const order = JSON.parse(oldStored);
@@ -69,25 +98,60 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           localStorage.removeItem("lastOrder");
         }
       }
-    } catch (_) {}
+    } catch (e) {
+      if (process.env.NODE_ENV === "development") {
+        console.warn("[GoSip] Session restore failed — starting fresh:", e);
+      }
+    }
 
     setIsMounted(true);
   }, []);
 
-  // Persist activeOrders whenever they change
+  // ── Auto-clear table session when all orders expire or are collected ──────
+  useEffect(() => {
+    if (!isMounted) return;
+    // If there are no active orders left AND a table session is active,
+    // clear the table identity so the user must re-select their table.
+    if (activeOrders.length === 0 && (sessionToken || tableNumber)) {
+      localStorage.removeItem("gosip-session");
+      setSessionToken(null);
+      setTableNumber(null);
+    }
+  }, [activeOrders, isMounted, sessionToken, tableNumber]);
+
+  // ── Persist orders ────────────────────────────────────────────────────────
   useEffect(() => {
     if (isMounted) {
       localStorage.setItem("activeOrders", JSON.stringify(activeOrders));
     }
   }, [activeOrders, isMounted]);
 
+  // ── Actions ───────────────────────────────────────────────────────────────
+
+  /** Select a table — generates a fresh session token with a creation timestamp. */
   const selectTable = (table: string) => {
-    const token = uuidv4();
+    const token     = uuidv4();
+    const createdAt = Date.now();
     setSessionToken(token);
     setTableNumber(table);
-    localStorage.setItem("gosip-session", JSON.stringify({ token, table }));
+    localStorage.setItem(
+      "gosip-session",
+      JSON.stringify({ token, table, createdAt }),
+    );
   };
 
+  /**
+   * Clear only the table identity (sessionToken + tableNumber).
+   * Active order history is kept so the user can still see their order status.
+   * Called after payment is collected.
+   */
+  const clearTableSession = () => {
+    setSessionToken(null);
+    setTableNumber(null);
+    localStorage.removeItem("gosip-session");
+  };
+
+  /** Full session wipe — used on logout / hard reset. */
   const clearSession = () => {
     setSessionToken(null);
     setTableNumber(null);
@@ -98,7 +162,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   const addOrder = (order: ActiveOrder) => {
     setActiveOrders((prev) => {
-      const now = Date.now();
+      const now      = Date.now();
       const filtered = prev.filter(
         (o) => o.token !== order.token && o.expires > now,
       );
@@ -112,6 +176,25 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     );
   };
 
+  /**
+   * Called when the admin marks an order as "collected" (cash paid).
+   * Removes the order from active list AND clears the table session
+   * so the diner must re-select their table for any future order.
+   */
+  const onOrderCollected = (orderId: string) => {
+    setActiveOrders((prev) => prev.filter((o) => o.orderId !== orderId));
+    // clearTableSession is handled by the auto-clear useEffect above
+    // once activeOrders becomes empty, or we can force it immediately:
+    setSessionToken(null);
+    setTableNumber(null);
+    localStorage.removeItem("gosip-session");
+  };
+
+  /** Remove one order without clearing the table session. */
+  const removeOrder = (orderId: string) => {
+    setActiveOrders((prev) => prev.filter((o) => o.orderId !== orderId));
+  };
+
   return (
     <SessionContext.Provider
       value={{
@@ -119,9 +202,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         tableNumber,
         activeOrders,
         selectTable,
+        clearTableSession,
         clearSession,
         addOrder,
         updateOrderStatus,
+        onOrderCollected,
+        removeOrder,
       }}
     >
       {children}

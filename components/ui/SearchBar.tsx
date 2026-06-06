@@ -1,13 +1,16 @@
 import { MdSearch } from 'react-icons/md'
 import { useBranchData } from '@/lib/context/branch-context'
+import { useLanguage } from '@/lib/context/language-context'
 
 export default function SearchBar({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const { branch } = useBranchData()
+  const { t }      = useLanguage()
   return (
     <div className="relative mx-4 mt-4 mb-3">
       <input
+        suppressHydrationWarning
         type="text"
-        placeholder={`Search in ${branch?.name || 'Café'}...`}
+        placeholder={t('searchDishes')}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         className="w-full h-14 pl-12 pr-4 rounded-full bg-white border border-gray-200 text-gray-900 placeholder-gray-300 outline-none focus:border-primary-500 transition-colors"

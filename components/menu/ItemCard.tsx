@@ -1,8 +1,10 @@
 // components/menu/ItemCard.tsx
+'use client'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import { MenuItem } from '@/lib/types'
 import { useCart } from '@/lib/context/cart-context'
+import { useLanguage } from '@/lib/context/language-context'
 import QuantityControl from '../ui/QuantityControl'
 import AddButton from '../ui/AddButton'
 import { MdOutlineRestaurant } from 'react-icons/md'
@@ -15,6 +17,7 @@ interface ItemCardProps {
 
 export default function ItemCard({ item, branchSlug, layout = 'row' }: ItemCardProps) {
   const { state, dispatch } = useCart()
+  const { t } = useLanguage()
   const isOutOfStock = !item.is_available
 
   const cartItem = state.items.find((i) => i.itemId === item.id)
@@ -42,9 +45,8 @@ export default function ItemCard({ item, branchSlug, layout = 'row' }: ItemCardP
 
   const VegDot = () => (
     <div
-      className={`absolute top-2 left-2 flex items-center justify-center w-[16px] h-[16px] rounded-[3px] bg-white/90 border-[1.5px] ${
-        item.is_veg ? 'border-green-600' : 'border-red-500'
-      }`}
+      className={`absolute top-2 left-2 flex items-center justify-center w-[16px] h-[16px] rounded-[3px] bg-white/90 border-[1.5px] ${item.is_veg ? 'border-green-600' : 'border-red-500'
+        }`}
     >
       <div className={`w-2 h-2 rounded-full ${item.is_veg ? 'bg-green-600' : 'bg-red-500'}`} />
     </div>
@@ -53,7 +55,7 @@ export default function ItemCard({ item, branchSlug, layout = 'row' }: ItemCardP
   const SoldOutBadge = () => (
     <div className="absolute inset-0 flex items-center justify-center bg-white/30">
       <span className="bg-gray-900 text-white text-[9px] tracking-widest font-semibold uppercase px-2 py-1 rounded-full">
-        Sold out
+        {t('soldOut')}
       </span>
     </div>
   )
@@ -127,11 +129,10 @@ export default function ItemCard({ item, branchSlug, layout = 'row' }: ItemCardP
         whileHover={{ y: -1 }}
         whileTap={{ scale: 0.985 }}
         transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-        className={`group flex h-[100px] sm:h-[108px] rounded-2xl overflow-hidden transition-shadow duration-200 ${
-          isOutOfStock
+        className={`group flex h-[100px] sm:h-[108px] rounded-2xl overflow-hidden transition-shadow duration-200 ${isOutOfStock
             ? 'bg-gray-50 border border-gray-200'
             : 'bg-white border border-gray-100 shadow-card hover:shadow-md hover:border-primary-200'
-        }`}
+          }`}
       >
         {/* Image */}
         <div className="relative w-24 sm:w-[104px] shrink-0 overflow-hidden">
@@ -143,9 +144,8 @@ export default function ItemCard({ item, branchSlug, layout = 'row' }: ItemCardP
         {/* Content */}
         <div className="flex-1 flex flex-col justify-between px-3.5 py-3 min-w-0">
           <div className="min-w-0">
-            <h3 className={`font-semibold text-sm sm:text-[15px] leading-snug line-clamp-1 ${
-              isOutOfStock ? 'text-gray-400' : 'text-gray-900'
-            }`}>
+            <h3 className={`font-semibold text-sm sm:text-[15px] leading-snug line-clamp-1 ${isOutOfStock ? 'text-gray-400' : 'text-gray-900'
+              }`}>
               {item.name}
             </h3>
             {item.description && (
@@ -156,14 +156,13 @@ export default function ItemCard({ item, branchSlug, layout = 'row' }: ItemCardP
           </div>
 
           <div className="flex items-center justify-between">
-            <span className={`font-bold text-base sm:text-lg tabular-nums ${
-              isOutOfStock ? 'text-gray-400' : 'text-green-600'
-            }`}>
+            <span className={`font-bold text-base sm:text-lg tabular-nums ${isOutOfStock ? 'text-gray-400' : 'text-green-600'
+              }`}>
               ₹{item.price}
             </span>
 
             {isOutOfStock ? (
-              <span className="text-[11px] text-gray-400 font-medium">Unavailable</span>
+              <span className="text-[11px] text-gray-400 font-medium">{t('unavailable')}</span>
             ) : (
               <div onClick={(e) => e.preventDefault()}>
                 <AddControl />

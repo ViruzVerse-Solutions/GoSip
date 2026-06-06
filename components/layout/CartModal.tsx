@@ -15,6 +15,7 @@ import {
   MdRemoveShoppingCart,
 } from "react-icons/md";
 import { useSession } from "@/lib/context/session-context";
+import { useLanguage } from "@/lib/context/language-context";
 
 export default function CartModal({
   branchSlug,
@@ -26,6 +27,7 @@ export default function CartModal({
   const { state, dispatch, totalItems, totalPrice, isCartOpen, closeCart } =
     useCart();
   const { tableNumber, selectTable, sessionToken, addOrder } = useSession();
+  const { t } = useLanguage();
   const [loading, setLoading] = useState(false);
   const [showTableModal, setShowTableModal] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -43,9 +45,9 @@ export default function CartModal({
         selectTable(table);
       }
 
-      const currentSessionToken =
-        sessionToken ||
-        Math.random().toString(36).substring(2, 10).toUpperCase();
+      // Use existing session token or generate a cryptographically-secure UUID.
+      // crypto.randomUUID() is available in all modern browsers & the Next.js runtime.
+      const currentSessionToken = sessionToken ?? crypto.randomUUID();
       const result = await placeOrder(
         currentSessionToken,
         table,
@@ -53,7 +55,6 @@ export default function CartModal({
         state.items,
       );
 
-      // ← ADD THIS BLOCK
       addOrder({
         token: result.token,
         orderId: result.orderId,
@@ -63,13 +64,12 @@ export default function CartModal({
         expires: Date.now() + 2 * 60 * 60 * 1000, // 2 hours
         status: "pending",
       });
-      // ← END ADD
 
       dispatch({ type: "CLEAR_CART" });
       closeCart();
       router.push(`/${branchSlug}/order/${result.token}`);
-    } catch (err: any) {
-      setError(err.message || "Failed to place order");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to place order');
     } finally {
       setLoading(false);
     }
@@ -111,7 +111,7 @@ export default function CartModal({
             <div className="w-10 h-1.5 bg-gray-300 rounded-full mx-auto mt-3 mb-2" />
             <div className="flex items-center justify-between px-5 py-2 border-b border-gray-100">
               <h2 className="text-lg font-bold text-gray-900">
-                Your Cart · {totalItems} item{totalItems !== 1 ? "s" : ""}
+                {t('yourCart')} · {totalItems} {totalItems !== 1 ? t('items') : t('item')}
               </h2>
               <div className="flex items-center gap-2">
                 {totalItems > 0 && (
@@ -119,7 +119,7 @@ export default function CartModal({
                     onClick={handleClearAll}
                     className="text-xs text-red-500 hover:text-red-700 font-medium px-2 py-1 rounded-full hover:bg-red-50 transition"
                   >
-                    Clear all
+                    {t('clearAll')}
                   </button>
                 )}
                 <button
@@ -212,7 +212,7 @@ export default function CartModal({
               <div className="border-t border-gray-100 px-5 py-4">
                 {totalPrice !== undefined && (
                   <div className="flex items-center justify-between mb-3">
-                    <span className="text-gray-700 font-medium">Total</span>
+                    <span className="text-gray-700 font-medium">{t('total')}</span>
                     <span className="text-xl font-bold text-primary-600">
                       ₹{totalPrice}
                     </span>
@@ -231,8 +231,8 @@ export default function CartModal({
                   className="w-full bg-primary-600 text-white font-bold py-3 rounded-xl disabled:opacity-50"
                 >
                   {loading
-                    ? "Placing Order…"
-                    : `Proceed to Order · ₹${totalPrice}`}
+                    ? t('placingOrder')
+                    : `${t('proceedToOrder')} · ₹${totalPrice}`}
                 </button>
               </div>
             )}
