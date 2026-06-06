@@ -40,14 +40,18 @@ export function proxy(request: NextRequest) {
     // Scripts: nonce + strict-dynamic (no unsafe-inline, no unsafe-eval in prod)
     // 'unsafe-eval' kept only for dev HMR (Next.js dev mode requires it)
     process.env.NODE_ENV === 'production'
-      ? `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`
-      : `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' 'unsafe-eval'`,
+
+      ? `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' 'unsafe-inline'`
+      : `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' 'unsafe-eval' 'unsafe-inline'`,
+
 
     // Styles: unsafe-inline still needed for Framer Motion inline styles
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
 
     // Fonts: Google Fonts CDN
-    "font-src 'self' https://fonts.gstatic.com",
+
+    "font-src 'self' https://fonts.gstatic.com", 
+
 
     // Images: same-origin + Supabase storage + data URIs (QR code SVGs)
     "img-src 'self' data: https://*.supabase.co",
@@ -68,6 +72,9 @@ export function proxy(request: NextRequest) {
   // ── 3. Clone request headers — inject nonce for layout consumption ────────
   const requestHeaders = new Headers(request.headers)
   requestHeaders.set('x-nonce', nonce)
+
+  requestHeaders.set('Content-Security-Policy', csp)
+
 
   // ── 4. Build the response — forward enriched headers ─────────────────────
   const response = NextResponse.next({
