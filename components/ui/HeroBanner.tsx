@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { MdFastfood } from "react-icons/md";
 import { PiSealCheckFill } from "react-icons/pi";
 import { useBranchData } from "@/lib/context/branch-context";
+import { useLanguage } from "@/lib/context/language-context";
 import { useRouter } from "next/navigation";
 import { Cormorant_Garamond } from "next/font/google";
 
@@ -17,6 +18,7 @@ const cormorant = Cormorant_Garamond({
 
 export default function HeroBanner({ branchId }: { branchId: string }) {
   const { signatures, branch } = useBranchData();
+  const { t } = useLanguage();
   const [activeIndex, setActiveIndex] = useState(0);
   const router = useRouter();
 
@@ -80,10 +82,10 @@ export default function HeroBanner({ branchId }: { branchId: string }) {
             className="text-4xl md:text-5xl font-semibold text-white mb-2 tracking-tight"
             style={{ fontFamily: "var(--font-cormorant)" }}
           >
-            Fresh & Fast
+            {t('freshAndFast')}
           </h2>
           <p className="text-white/90 text-sm md:text-base max-w-xs">
-            Order from our café and pick up at your table
+            {t('heroBannerDesc')}
           </p>
         </div>
         <div className="absolute right-6 bottom-4 w-16 h-16 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm">
@@ -130,7 +132,7 @@ export default function HeroBanner({ branchId }: { branchId: string }) {
       {/* Signature badge */}
       <div className="absolute top-4 left-4 z-20 flex items-center gap-1.5 bg-white/90 backdrop-blur-sm text-primary-700 text-xs font-bold px-3 py-1.5 rounded-full shadow-sm tracking-wide">
         <PiSealCheckFill className="w-4 h-4 shrink-0" />
-        {branch?.name ? `${branch.name}'s Signature` : "Chef's Signature"}
+        {branch?.name ? `${branch.name} ${t('signature')}` : t('chefsSignature')}
       </div>
 
       {/* Veg / non‑veg */}
@@ -178,6 +180,7 @@ export default function HeroBanner({ branchId }: { branchId: string }) {
         <div className="absolute bottom-4 right-5 z-20 flex gap-1.5 pointer-events-auto">
           {signatures.map((_, i) => (
             <button
+              suppressHydrationWarning
               key={i}
               onClick={(e) => {
                 e.stopPropagation();

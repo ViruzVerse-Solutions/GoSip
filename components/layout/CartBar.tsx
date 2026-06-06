@@ -4,6 +4,7 @@ import { memo, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { MdShoppingCart } from 'react-icons/md'
 import { useCart } from '@/lib/context/cart-context'
+import { useLanguage } from '@/lib/context/language-context'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const CURRENCY = '₹'
@@ -11,6 +12,7 @@ const CURRENCY = '₹'
 // ─── CartBar ──────────────────────────────────────────────────────────────────
 function CartBar() {
   const { totalItems, totalPrice, openCart } = useCart()
+  const { t } = useLanguage()
   const handleOpen = useCallback(() => openCart(), [openCart])
 
   return (
@@ -40,7 +42,7 @@ function CartBar() {
                 {CURRENCY}{totalPrice?.toLocaleString('en-IN') ?? '0'}
               </p>
               <p className="text-[11px] text-gray-400 leading-tight mt-0.5">
-                {totalItems} item{totalItems !== 1 ? 's' : ''} in cart
+                {totalItems} {totalItems !== 1 ? t('items') : t('item')} in cart
               </p>
             </div>
 
@@ -62,7 +64,7 @@ function CartBar() {
               "
             >
               <MdShoppingCart className="w-[18px] h-[18px] shrink-0" aria-hidden />
-              View Cart
+              {t('viewCart')}
               <span aria-hidden className="opacity-70">→</span>
             </motion.button>
           </div>
