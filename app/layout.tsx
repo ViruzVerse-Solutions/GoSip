@@ -17,7 +17,15 @@ export const metadata: Metadata = {
   description: 'Order fresh, pick up fast',
 }
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+import { headers } from 'next/headers'
+
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  // Reading headers automatically opts the entire application into dynamic rendering.
+  // This is strictly required when using a nonce-based CSP, because nonces must be 
+  // freshly generated on the server for every single request.
+  const headersList = await headers()
+  const nonce = headersList.get('x-nonce') || undefined
+
   return (
     <html lang="en" className={inter.variable} data-scroll-behavior="smooth">
       <body className="bg-gray-50 font-sans antialiased">
