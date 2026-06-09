@@ -4,6 +4,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseServer } from '@/lib/supabase/server'
 import { isValidUUID } from '@/lib/security/sanitize'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ branchId: string }> },
@@ -45,7 +47,7 @@ export async function GET(
 
       supabaseServer
         .from('orders')
-        .select('table_number, session_token')
+        .select('id, table_number, session_token, total')
         .eq('branch_id', branchId)
         .in('status', ['pending', 'delivered'])
         .gte('created_at', twoHoursAgo),
@@ -58,7 +60,9 @@ export async function GET(
 
     // A table is occupied if it has active orders, unless ALL active orders on it belong to the current session token
     const occupiedTables = new Set<string>()
-    if (activeOrders) {
+    let isSessionActive = false
+
+    if (activeOrders && activeOrders.length > 0) {
       const ordersByTable = new Map<string, typeof activeOrders>()
       for (const order of activeOrders) {
         if (!ordersByTable.has(order.table_number)) {
@@ -75,6 +79,11 @@ export async function GET(
           occupiedTables.add(tableNum)
         }
       }
+
+      // Check if the current session token has any active orders (including collected ones)
+      if (sessionToken) {
+        isSessionActive = activeOrders.some((o) => o.session_token === sessionToken)
+      }
     }
 
     const tablesWithStatus = tables?.map((t) => ({
@@ -83,7 +92,7 @@ export async function GET(
       is_free: !occupiedTables.has(t.table_number),
     })) ?? []
 
-    return NextResponse.json(tablesWithStatus, {
+    return NextResponse.json({ tables: tablesWithStatus, isSessionActive }, {
       headers: {
         'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
       },

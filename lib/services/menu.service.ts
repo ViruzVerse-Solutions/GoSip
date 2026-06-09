@@ -14,7 +14,7 @@ export const fetchBranchBySlug = async (slug: string): Promise<Branch | null> =>
       .select("id, name, slug, logo_url, is_active")
       .eq("slug", slug)
       .eq("is_active", true)
-      .single();
+      .maybeSingle();
     if (error) console.error("fetchBranchBySlug error:", error);
     return (data as Branch) ?? null;
   };
@@ -115,8 +115,9 @@ export function subscribeToOrderUpdates(
   orderId: string,
   onUpdate: (updatedOrder: any) => void,
 ) {
+  const uniqueId = Math.random().toString(36).substring(7);
   const channel = supabaseBrowser
-    .channel(`order-${orderId}`)
+    .channel(`order-${orderId}-${uniqueId}`)
     .on(
       "postgres_changes",
       {

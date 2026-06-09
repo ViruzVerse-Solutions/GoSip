@@ -7,9 +7,11 @@ import {
   useContext,
   useState,
   useEffect,
+  useRef,
   ReactNode,
 } from "react";
 import { v4 as uuidv4 } from "uuid";
+import { subscribeToOrder } from "@/lib/services/order.service";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 /** A table session lives for 4 hours from when the table was first selected. */
@@ -33,7 +35,7 @@ interface SessionContextType {
   sessionToken:     string | null;
   tableNumber:      string | null;
   activeOrders:     ActiveOrder[];
-  selectTable:      (table: string) => void;
+  selectTable:      (table: string) => string;
   /** Clear the table identity (token + tableNumber) — called after payment collected. */
   clearTableSession: () => void;
   /** Full nuclear clear — clears table identity AND all active orders. */
@@ -107,17 +109,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setIsMounted(true);
   }, []);
 
-  // ── Auto-clear table session when all orders expire or are collected ──────
+  // ── Auto-clear table session logic removed to keep session for 2 hours ──────
   useEffect(() => {
     if (!isMounted) return;
-    // If there are no active orders left AND a table session is active,
-    // clear the table identity so the user must re-select their table.
-    if (activeOrders.length === 0 && (sessionToken || tableNumber)) {
-      localStorage.removeItem("gosip-session");
-      setSessionToken(null);
-      setTableNumber(null);
-    }
-  }, [activeOrders, isMounted, sessionToken, tableNumber]);
+    // We intentionally keep the session alive even if there are no active orders
+    // to allow the user to place subsequent orders at the same table.
+  }, [isMounted]);
 
   // ── Persist orders ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -138,6 +135,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       "gosip-session",
       JSON.stringify({ token, table, createdAt }),
     );
+    return token;
   };
 
   /**
@@ -178,22 +176,71 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   /**
    * Called when the admin marks an order as "collected" (cash paid).
-   * Removes the order from active list AND clears the table session
-   * so the diner must re-select their table for any future order.
+   * We update the status so the order history stays visible,
+   * but we CLEAR the table session so the table is instantly freed
+   * and no longer shows as "Your Table" for this user.
    */
   const onOrderCollected = (orderId: string) => {
-    setActiveOrders((prev) => prev.filter((o) => o.orderId !== orderId));
-    // clearTableSession is handled by the auto-clear useEffect above
-    // once activeOrders becomes empty, or we can force it immediately:
-    setSessionToken(null);
-    setTableNumber(null);
-    localStorage.removeItem("gosip-session");
+    setActiveOrders((prev) =>
+      prev.map((o) => (o.orderId === orderId ? { ...o, status: 'collected' } : o)),
+    );
+    clearTableSession();
   };
 
   /** Remove one order without clearing the table session. */
   const removeOrder = (orderId: string) => {
     setActiveOrders((prev) => prev.filter((o) => o.orderId !== orderId));
   };
+
+  // ── Global real-time subscription for active orders ───────────────────────
+  const subscribedOrderIds = useRef<Set<string>>(new Set());
+  const unsubscribeFns = useRef<Map<string, () => void>>(new Map());
+
+  // We define these in refs to avoid closure stale issues in the effect
+  const onOrderCollectedRef = useRef(onOrderCollected);
+  const updateOrderStatusRef = useRef(updateOrderStatus);
+
+  useEffect(() => {
+    onOrderCollectedRef.current = onOrderCollected;
+    updateOrderStatusRef.current = updateOrderStatus;
+  }, [onOrderCollected, updateOrderStatus]);
+
+  useEffect(() => {
+    if (!isMounted) return;
+
+    activeOrders.forEach((order) => {
+      if (subscribedOrderIds.current.has(order.orderId)) return;
+      subscribedOrderIds.current.add(order.orderId);
+
+      const unsub = subscribeToOrder(order.orderId, (updated: any) => {
+        if (updated.status) {
+          if (updated.status === 'collected') {
+            onOrderCollectedRef.current(order.orderId);
+          } else {
+            updateOrderStatusRef.current(order.orderId, updated.status);
+          }
+        }
+      });
+      unsubscribeFns.current.set(order.orderId, unsub);
+    });
+
+    // Cleanup subscriptions for removed orders
+    unsubscribeFns.current.forEach((unsub, orderId) => {
+      if (!activeOrders.some((o) => o.orderId === orderId)) {
+        unsub();
+        unsubscribeFns.current.delete(orderId);
+        subscribedOrderIds.current.delete(orderId);
+      }
+    });
+  }, [activeOrders, isMounted]);
+
+  useEffect(() => {
+    return () => {
+      unsubscribeFns.current.forEach((unsub) => unsub());
+      unsubscribeFns.current.clear();
+      subscribedOrderIds.current.clear();
+    };
+  }, []);
 
   return (
     <SessionContext.Provider
