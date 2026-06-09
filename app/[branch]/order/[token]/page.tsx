@@ -412,7 +412,7 @@ const CollectedBanner = ({ countdown }: { countdown: number }) => {
       animate={{ opacity: 1, scale: 1 }}
       className="text-center px-5 py-8"
       style={{ borderBottom: "1px solid #e0f2e9", background: "#f0fdf4" }}
-    >
+    > 
       <motion.div
         initial={{ scale: 0 }}
         animate={{ scale: 1 }}
