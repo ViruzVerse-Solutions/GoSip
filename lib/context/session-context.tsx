@@ -109,12 +109,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setIsMounted(true);
   }, []);
 
-  // ── Auto-clear table session logic removed to keep session for 2 hours ──────
-  useEffect(() => {
-    if (!isMounted) return;
-    // We intentionally keep the session alive even if there are no active orders
-    // to allow the user to place subsequent orders at the same table.
-  }, [isMounted]);
+  // Removed aggressive auto-clear useEffect that was destroying the session on first table selection
 
   // ── Persist orders ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -176,15 +171,17 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   /**
    * Called when the admin marks an order as "collected" (cash paid).
-   * We update the status so the order history stays visible,
-   * but we CLEAR the table session so the table is instantly freed
+   * We update the status so the order history stays visible for 2 hours,
+   * but we CLEAR the table session so the table is instantly freed visually
    * and no longer shows as "Your Table" for this user.
    */
   const onOrderCollected = (orderId: string) => {
     setActiveOrders((prev) =>
       prev.map((o) => (o.orderId === orderId ? { ...o, status: 'collected' } : o)),
     );
-    clearTableSession();
+    setSessionToken(null);
+    setTableNumber(null);
+    localStorage.removeItem("gosip-session");
   };
 
   /** Remove one order without clearing the table session. */

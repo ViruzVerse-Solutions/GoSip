@@ -49,7 +49,7 @@ export async function GET(
         .from('orders')
         .select('id, table_number, session_token, total')
         .eq('branch_id', branchId)
-        .in('status', ['pending', 'delivered'])
+        .in('status', ['pending'])
         .gte('created_at', twoHoursAgo),
     ])
 
