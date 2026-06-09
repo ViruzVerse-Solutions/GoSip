@@ -41,13 +41,10 @@ export default function CartModal({
     setShowTableModal(false);
 
     try {
-      if (!tableNumber) {
-        selectTable(table);
+      let currentSessionToken = sessionToken;
+      if (!tableNumber || !currentSessionToken) {
+        currentSessionToken = selectTable(table);
       }
-
-      // Use existing session token or generate a cryptographically-secure UUID.
-      // crypto.randomUUID() is available in all modern browsers & the Next.js runtime.
-      const currentSessionToken = sessionToken ?? crypto.randomUUID();
       const result = await placeOrder(
         currentSessionToken,
         table,

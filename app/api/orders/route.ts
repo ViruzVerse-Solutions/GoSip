@@ -118,7 +118,7 @@ export async function POST(req: NextRequest) {
       .select('id, session_token')
       .eq('branch_id', branchId)
       .eq('table_number', trimmedTable)
-      .in('status', ['pending', 'delivered'])
+      .in('status', ['pending'])
       .gte('created_at', twoHoursAgo)
 
     if (checkOccupiedError) {

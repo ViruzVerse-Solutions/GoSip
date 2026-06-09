@@ -404,7 +404,7 @@ const ReadyBanner = () => {
 };
 
 // ─── Collected / Payment Banner ───────────────────────────────────────────────
-const CollectedBanner = ({ countdown }: { countdown: number }) => {
+const CollectedBanner = () => {
   const { t } = useLanguage();
   return (
     <motion.div
@@ -412,7 +412,7 @@ const CollectedBanner = ({ countdown }: { countdown: number }) => {
       animate={{ opacity: 1, scale: 1 }}
       className="text-center px-5 py-8"
       style={{ borderBottom: "1px solid #e0f2e9", background: "#f0fdf4" }}
-    > 
+    >
       <motion.div
         initial={{ scale: 0 }}
         animate={{ scale: 1 }}
@@ -440,12 +440,9 @@ const CollectedBanner = ({ countdown }: { countdown: number }) => {
         className="font-extrabold text-gray-900 mb-1"
         style={{ fontSize: 22, letterSpacing: "-0.5px" }}
       >
-        {t('paymentReceived')}
+        Payment Received
       </p>
-      <p className="text-gray-500 text-sm mb-3">{t('thankYouEnjoy')}</p>
-      <p style={{ fontSize: 11, color: "#9e9e9e" }}>
-        {t('redirectingInN').replace('{n}', String(countdown))}
-      </p>
+      <p className="text-gray-500 text-sm">Thank you, we hope you enjoyed!</p>
     </motion.div>
   );
 };
@@ -598,9 +595,7 @@ export default function OrderPage() {
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [remaining, setRemaining] = useState<number | null>(null);
-  const [collectCountdown, setCollectCountdown] = useState<number | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
-  const collectTimerRef = useRef<NodeJS.Timeout | null>(null);
   const fetchedRef = useRef(false); // prevents double-fetch in Strict Mode
 
   // ── helpers ──────────────────────────────────────────────────────────────
@@ -672,24 +667,9 @@ const unsubscribe = subscribeToOrder(order.id, (updated) => {
   if (updated.status) {
     updateOrderStatus(order.id, updated.status);
 
-    // ── Collected: expire session & auto-redirect ──────────────────────────
+    // ── Collected: update session but do not redirect ──────────────────────────
     if (updated.status === "collected") {
-      // Remove order AND clear table session — diner has paid, session is over
       onOrderCollected(order.id);
-      orderCache.delete(token);
-
-      // Countdown 3 → 0 then redirect
-      let count = 3;
-      setCollectCountdown(count);
-      collectTimerRef.current = setInterval(() => {
-        count -= 1;
-        if (count <= 0) {
-          clearInterval(collectTimerRef.current!);
-          router.replace(`/${branch}`);
-        } else {
-          setCollectCountdown(count);
-        }
-      }, 1000);
     }
   }
   setOrder((prev) => {
@@ -702,7 +682,6 @@ const unsubscribe = subscribeToOrder(order.id, (updated) => {
 
   return () => {
     unsubscribe();
-    if (collectTimerRef.current) clearInterval(collectTimerRef.current);
   };
 }, [order?.id, token, branch, onOrderCollected, router]);
 
@@ -763,51 +742,13 @@ const unsubscribe = subscribeToOrder(order.id, (updated) => {
   if (notFound) return <NotFoundState router={router} branch={branch} />;
   if (!order) return <LoadingSkeleton />; // fetch resolved but order not yet in state (edge case)
 
-  // If collected show fullscreen payment confirmation
-  if (isCollected || collectCountdown !== null) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="w-full max-w-sm bg-white rounded-3xl overflow-hidden"
-          style={{ boxShadow: "var(--shadow-card)", border: "1px solid #e8e8e8" }}
-        >
-          <CollectedBanner countdown={collectCountdown ?? 0} />
-          <div className="px-5 py-4">
-            <div
-              className="flex items-center justify-between"
-              style={{ borderBottom: "1px solid #f5f5f5", paddingBottom: 12, marginBottom: 12 }}
-            >
-              <span className="text-sm text-gray-400">{t('order')}</span>
-              <span className="font-bold text-gray-700">#{order.daily_order_number}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-400">{t('amountPaid')}</span>
-              <span
-                style={{
-                  fontFamily: "'DM Mono', monospace",
-                  fontSize: 22,
-                  fontWeight: 600,
-                  color: "var(--color-primary-700)",
-                }}
-              >
-                ₹{order.order_items.reduce((s, i) => s + i.price * i.quantity, 0)}
-              </span>
-            </div>
-          </div>
-        </motion.div>
-      </div>
-    );
-  }
-
   const stepStates: [StepState, StepState] = isCancelled
     ? ["done", "cancelled"]
-    : isReady
+    : isReady || isCollected
       ? ["done", "done"]
       : ["done", "pending"];
 
-  const headerBg = isCancelled ? "#c62828" : "var(--color-primary-600)";
+  const headerBg = isCancelled ? "#c62828" : isCollected ? "#2e7d32" : "var(--color-primary-600)";
 
   return (
     <div className="min-h-screen bg-gray-50 pb-8">
@@ -859,6 +800,35 @@ const unsubscribe = subscribeToOrder(order.id, (updated) => {
               </h1>
               <p className="text-white/70 text-sm">
                 This order has been cancelled
+              </p>
+            </motion.div>
+          ) : isCollected ? (
+            <motion.div
+              key="collected"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+            >
+              <div
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full mb-3"
+                style={{
+                  background: "rgba(255,255,255,0.15)",
+                  fontSize: 11,
+                  fontWeight: 700,
+                  color: "#fff",
+                  letterSpacing: "0.5px",
+                  textTransform: "uppercase",
+                }}
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-white" /> Paid
+              </div>
+              <h1
+                className="text-3xl font-extrabold text-white mb-1"
+                style={{ letterSpacing: "-0.8px" }}
+              >
+                Payment Received
+              </h1>
+              <p className="text-white/70 text-sm">
+                Thank you for your order
               </p>
             </motion.div>
           ) : isReady ? (
@@ -943,6 +913,8 @@ const unsubscribe = subscribeToOrder(order.id, (updated) => {
           <AnimatePresence mode="wait">
             {isCancelled ? (
               <CancelledBanner key="cb" />
+            ) : isCollected ? (
+              <CollectedBanner key="pcb" />
             ) : isReady ? (
               <ReadyBanner key="rb" />
             ) : remaining !== null ? (

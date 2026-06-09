@@ -33,7 +33,7 @@ interface SessionContextType {
   sessionToken:     string | null;
   tableNumber:      string | null;
   activeOrders:     ActiveOrder[];
-  selectTable:      (table: string) => void;
+  selectTable:      (table: string) => string;
   /** Clear the table identity (token + tableNumber) — called after payment collected. */
   clearTableSession: () => void;
   /** Full nuclear clear — clears table identity AND all active orders. */
@@ -107,17 +107,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setIsMounted(true);
   }, []);
 
-  // ── Auto-clear table session when all orders expire or are collected ──────
-  useEffect(() => {
-    if (!isMounted) return;
-    // If there are no active orders left AND a table session is active,
-    // clear the table identity so the user must re-select their table.
-    if (activeOrders.length === 0 && (sessionToken || tableNumber)) {
-      localStorage.removeItem("gosip-session");
-      setSessionToken(null);
-      setTableNumber(null);
-    }
-  }, [activeOrders, isMounted, sessionToken, tableNumber]);
+  // Removed aggressive auto-clear useEffect that was destroying the session on first table selection
 
   // ── Persist orders ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -138,6 +128,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       "gosip-session",
       JSON.stringify({ token, table, createdAt }),
     );
+    return token;
   };
 
   /**
@@ -178,13 +169,14 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   /**
    * Called when the admin marks an order as "collected" (cash paid).
-   * Removes the order from active list AND clears the table session
-   * so the diner must re-select their table for any future order.
+   * We update the status so the order history stays visible for 2 hours,
+   * but we CLEAR the table session so the table is instantly freed visually
+   * and no longer shows as "Your Table" for this user.
    */
   const onOrderCollected = (orderId: string) => {
-    setActiveOrders((prev) => prev.filter((o) => o.orderId !== orderId));
-    // clearTableSession is handled by the auto-clear useEffect above
-    // once activeOrders becomes empty, or we can force it immediately:
+    setActiveOrders((prev) =>
+      prev.map((o) => (o.orderId === orderId ? { ...o, status: 'collected' } : o)),
+    );
     setSessionToken(null);
     setTableNumber(null);
     localStorage.removeItem("gosip-session");
