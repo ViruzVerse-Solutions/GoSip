@@ -2,8 +2,7 @@
 
 import { useState, useRef, PointerEvent, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { MdFastfood } from "react-icons/md";
-import { PiSealCheckFill } from "react-icons/pi";
+import { MdFastfood, MdVerified } from "react-icons/md";
 import { useBranchData } from "@/lib/context/branch-context";
 import { useLanguage } from "@/lib/context/language-context";
 import { useRouter } from "next/navigation";
@@ -131,7 +130,7 @@ export default function HeroBanner({ branchId }: { branchId: string }) {
 
       {/* Signature badge */}
       <div className="absolute top-4 left-4 z-20 flex items-center gap-1.5 bg-white/90 backdrop-blur-sm text-primary-700 text-xs font-bold px-3 py-1.5 rounded-full shadow-sm tracking-wide">
-        <PiSealCheckFill className="w-4 h-4 shrink-0" />
+        <MdVerified className="w-4 h-4 shrink-0" />
         {branch?.name ? `${branch.name} ${t('signature')}` : t('chefsSignature')}
       </div>
 
