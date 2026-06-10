@@ -13,6 +13,7 @@ import ItemCard from '@/components/menu/ItemCard'
 import VegFilterChip from '@/components/ui/VegFilterChip'
 import { useBranchData } from '@/lib/context/branch-context'
 import { useLanguage } from '@/lib/context/language-context'
+import { MdOutlineRestaurantMenu } from 'react-icons/md'
 
 export default function BranchClient() {
   const { branch, categories, items } = useBranchData()
@@ -37,10 +38,25 @@ export default function BranchClient() {
     // Push out-of-stock items to the bottom
     .sort((a, b) => Number(!a.is_available) - Number(!b.is_available))
 
+  const hasMenuFeature = branch.features?.includes('menu') ?? true;
+
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
       <BranchHeader branch={branch} />
-      <SearchBar value={search} onChange={setSearch} />
+      
+      {!hasMenuFeature ? (
+        <div className="flex flex-col items-center justify-center pt-32 px-4 text-center">
+          <div className="w-24 h-24 bg-gray-200 rounded-full flex items-center justify-center mb-6 shadow-inner">
+            <MdOutlineRestaurantMenu className="w-10 h-10 text-gray-400" />
+          </div>
+          <h2 className="text-xl font-bold text-gray-900 mb-2">{t('menuUnavailable') || 'Menu Unavailable'}</h2>
+          <p className="text-gray-500 max-w-sm text-sm">
+            {t('menuUnavailableDesc') || 'This branch is not currently displaying its menu online. Please contact the staff for assistance.'}
+          </p>
+        </div>
+      ) : (
+        <>
+          <SearchBar value={search} onChange={setSearch} />
       <HeroBanner branchId={branch.id} />
       <CategoryChips
         categories={categories.map(({ id, name }) => ({ id, name }))}
@@ -64,6 +80,8 @@ export default function BranchClient() {
           </p>
         )}
       </div>
+        </>
+      )}
     </div>
   )
 }

@@ -20,10 +20,12 @@ export default async function BranchLayout({
   const branch = await fetchBranchBySlug(branchSlug)
   if (!branch) notFound()
 
-  const [menu, signatures] = await Promise.all([
+  const hasMenuFeature = branch.features?.includes('menu') ?? true;
+  
+  const [menu, signatures] = hasMenuFeature ? await Promise.all([
     fetchMenuByBranch(branch.id),
     fetchSignatureItems(branch.id),
-  ])
+  ]) : [{ categories: [], items: [] }, []];
 
   return (
     <BranchProvider
@@ -33,8 +35,12 @@ export default async function BranchLayout({
       signatures={signatures}
     >
       {children}
-      <CartBar />
-      <CartModal branchSlug={branch.slug} branchId={branch.id} />
+      {branch.features?.includes('qr_ordering') && (
+        <>
+          <CartBar />
+          <CartModal branchSlug={branch.slug} branchId={branch.id} />
+        </>
+      )}
     </BranchProvider>
   )
 }

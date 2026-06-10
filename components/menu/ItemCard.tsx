@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { MenuItem } from '@/lib/types'
 import { useCart } from '@/lib/context/cart-context'
 import { useLanguage } from '@/lib/context/language-context'
+import { useBranchData } from '@/lib/context/branch-context'
 import QuantityControl from '../ui/QuantityControl'
 import AddButton from '../ui/AddButton'
 import { MdOutlineRestaurant } from 'react-icons/md'
@@ -18,7 +19,11 @@ interface ItemCardProps {
 export default function ItemCard({ item, branchSlug, layout = 'row' }: ItemCardProps) {
   const { state, dispatch } = useCart()
   const { t } = useLanguage()
+  const { branch } = useBranchData()
   const isOutOfStock = !item.is_available
+  
+  // Disable ordering if the branch subscription lacks the 'qr_ordering' feature
+  const canOrder = branch.features?.includes('qr_ordering') ?? true;
 
   const cartItem = state.items.find((i) => i.itemId === item.id)
   const quantity = cartItem?.quantity ?? 0
@@ -75,7 +80,7 @@ export default function ItemCard({ item, branchSlug, layout = 'row' }: ItemCardP
     )
 
   const AddControl = ({ stopPropagation = false }) => {
-    if (isOutOfStock) return null
+    if (isOutOfStock || !canOrder) return null
     return (
       <AnimatePresence mode="wait" initial={false}>
         <motion.div

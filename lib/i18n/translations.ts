@@ -53,7 +53,7 @@ export type TranslationKey =
   | 'orderHasBeenDelivered' | 'orderHasBeenCancelled' | 'orderLinkInvalid'
   | 'yourOrder' | 'preparingMeal' | 'notifyWhenReady' | 'redirectingInN'
   | 'orderDelayed' | 'orderDelayedApology'
-
+  | 'menuUnavailable' | 'menuUnavailableDesc' | 'orderingDisabled'
 type Translations = Record<TranslationKey, string>
 type AllTranslations = Record<LanguageCode, Translations>
 
@@ -149,6 +149,9 @@ export const translations: AllTranslations = {
     redirectingInN:    'Redirecting in {n}s…',
     orderDelayed:      'Delayed',
     orderDelayedApology: 'We apologize for the delay! Your order is taking slightly longer than estimated. We are preparing it as fast as possible.',
+    menuUnavailable:   'Menu Unavailable',
+    menuUnavailableDesc: 'This branch is not currently displaying its menu online. Please contact the staff for assistance.',
+    orderingDisabled:  'Online ordering is currently unavailable for this branch.',
   },
 
   // ── Hindi / हिन्दी ──────────────────────────────────────────────────────────
@@ -242,6 +245,9 @@ export const translations: AllTranslations = {
     redirectingInN:    '{n} सेकंड में पुनर्निर्देशित हो रहा है…',
     orderDelayed:      'विलंबित',
     orderDelayedApology: 'देरी के लिए हम क्षما चाहते हैं! आपका ऑर्डर अनुमानित समय से थोड़ा अधिक समय ले रहा है। हम इसे जल्द से जल्द तैयार कर رہے हैं।',
+    menuUnavailable:   'मेनू अनुपलब्ध',
+    menuUnavailableDesc: 'यह शाखा वर्तमान में अपना मेनू ऑनलाइन प्रदर्शित नहीं कर रही है। कृपया सहायता के लिए कर्मचारियों से संपर्क करें।',
+    orderingDisabled:  'इस शाखा के लिए ऑनलाइन ऑर्डरिंग वर्तमान में अनुपलब्ध है।',
   },
 
   // ── Tamil / தமிழ் ───────────────────────────────────────────────────────────
@@ -335,6 +341,9 @@ export const translations: AllTranslations = {
     redirectingInN:    '{n} விநாடிகளில் திருப்பி அனுப்புகிறது…',
     orderDelayed:      'தாமதமானது',
     orderDelayedApology: 'தாமதத்திற்கு வருந்துகிறோம்! உங்கள் ஆர்டர் மதிப்பிடப்பட்ட நேரத்தை விட சற்று கூடுதல் நேரம் எடுக்கிறது. நாங்கள் அதை கூடிய விரைவில் தயாரித்து வருகிறோம்.',
+    menuUnavailable:   'மெனு கிடைக்கவில்லை',
+    menuUnavailableDesc: 'இந்த கிளை தற்போது அதன் மெனுவை ஆன்லைனில் காட்டவில்லை. உதவிக்கு ஊழியர்களைத் தொடர்பு கொள்ளவும்.',
+    orderingDisabled:  'இந்த கிளைக்கு ஆன்லைன் ஆர்டர் செய்வது தற்போது கிடைக்கவில்லை.',
   },
 
   // ── Malayalam / മലയാളം ──────────────────────────────────────────────────────
@@ -428,6 +437,9 @@ export const translations: AllTranslations = {
     redirectingInN:    '{n} സെക്കൻഡിൽ തിരിച്ചുവിടുന്നു…',
     orderDelayed:      'വൈകുന്നു',
     orderDelayedApology: 'വൈകിയതിൽ ഞങ്ങൾ ഖേദിക്കുന്നു! നിങ്ങളുടെ ഓർഡറിന് കണക്കാക്കിയതിനേക്കാൾ കൂടുതൽ സമയം എടുക്കുന്നു. ഞങ്ങൾ അത് എത്രയും വേഗം തയ്യാറാക്കുന്നുണ്ട്.',
+    menuUnavailable:   'മെനു ലഭ്യമല്ല',
+    menuUnavailableDesc: 'ഈ ബ്രാഞ്ച് നിലവിൽ ഓൺലൈനിൽ മെനു പ്രദർശിപ്പിക്കുന്നില്ല. സഹായത്തിനായി ജീവനക്കാരെ ബന്ധപ്പെടുക.',
+    orderingDisabled:  'ഈ ബ്രാഞ്ചിനായി ഓൺലൈൻ ഓർഡറിംഗ് നിലവിൽ ലഭ്യമല്ല.',
   },
 
   // ── Telugu / తెలుగు ──────────────────────────────────────────────────────────
@@ -521,6 +533,9 @@ export const translations: AllTranslations = {
     redirectingInN:    '{n} సెకన్లలో దారి మళ్ళిస్తున్నాం…',
     orderDelayed:      'ఆలస్యమైంది',
     orderDelayedApology: 'ఆలస్యానికి క్షమాపణలు! మీ ఆర్డర్ అంచనా వేసిన సమయం కంటే కొంచెం ఎక్కువ సమయం తీసుకుంటోంది. మేము దీనిని వీలైనంత త్వరగా సిద్ధం చేస్తున్నాము.',
+    menuUnavailable:   'మెను అందుబాటులో లేదు',
+    menuUnavailableDesc: 'ఈ బ్రాంచ్ ప్రస్తుతం ఆన్‌లైన్‌లో దాని మెనుని ప్రదర్శించడం లేదు. దయచేసి సహాయం కోసం సిబ్బందిని సంప్రదించండి.',
+    orderingDisabled:  'ఈ బ్రాంచ్‌కి ప్రస్తుతం ఆన్‌లైన్ ఆర్డరింగ్ అందుబాటులో లేదు.',
   },
 
   // ── Kannada / ಕನ್ನಡ ──────────────────────────────────────────────────────────
@@ -614,6 +629,9 @@ export const translations: AllTranslations = {
     redirectingInN:    '{n} ಸೆಕೆಂಡ್‌ಗಳಲ್ಲಿ ಮರಳಿ ನಿರ್ದೇಶಿಸಲಾಗುತ್ತಿದೆ…',
     orderDelayed:      'ವಿಳಂಬವಾಗಿದೆ',
     orderDelayedApology: 'ವಿಳಂಬಕ್ಕಾಗಿ ನಾವು ಕ್ಷಮೆಯಾಚಿಸುತ್ತೇವೆ! ನಿಮ್ಮ ಆರ್ಡರ್ ಅಂದಾಜು ಸಮಯಕ್ಕಿಂತ ಸ್ವಲ್ಪ ಹೆಚ್ಚು ಸಮಯ ತೆಗೆದುಕೊಳ್ಳುತ್ತಿದೆ. ನಾವು ಇದನ್ನು ಆದಷ್ಟು ಬೇಗ ತಯಾರಿಸುತ್ತಿದ್ದೇವೆ.',
+    menuUnavailable:   'ಮೆನು ಲಭ್ಯವಿಲ್ಲ',
+    menuUnavailableDesc: 'ಈ ಶಾಖೆಯು ಪ್ರಸ್ತುತ ತನ್ನ ಮೆನುವನ್ನು ಆನ್‌ಲೈನ್‌ನಲ್ಲಿ ಪ್ರದರ್ಶಿಸುತ್ತಿಲ್ಲ. ದಯವಿಟ್ಟು ಸಹಾಯಕ್ಕಾಗಿ ಸಿಬ್ಬಂದಿಯನ್ನು ಸಂಪರ್ಕಿಸಿ.',
+    orderingDisabled:  'ಈ ಶಾಖೆಗೆ ಆನ್‌ಲೈನ್ ಆರ್ಡರಿಂಗ್ ಪ್ರಸ್ತುತ ಲಭ್ಯವಿಲ್ಲ.',
   },
 
   // ── Urdu / اردو ─────────────────────────────────────────────────────────────
@@ -707,5 +725,8 @@ export const translations: AllTranslations = {
     redirectingInN:    '{n} سیکنڈ میں منتقل ہو رہا ہے…',
     orderDelayed:      'تاخیر',
     orderDelayedApology: 'تاخیر کے لیے ہم معذرت خواہ ہیں! آپ کے آرڈر میں اندازے سے تھوڑا زیادہ وقت لگ رہا ہے۔ ہم اسے جلد از جلد تیار کر رہے ہیں۔',
+    menuUnavailable:   'مینو دستیاب نہیں',
+    menuUnavailableDesc: 'یہ شاخ فی الحال اپنا مینو آن لائن نہیں دکھا رہی ہے۔ براہ کرم مدد کے لیے عملے سے رابطہ کریں۔',
+    orderingDisabled:  'اس برانچ کے لیے آن لائن آرڈرنگ فی الحال دستیاب نہیں ہے۔',
   },
 }

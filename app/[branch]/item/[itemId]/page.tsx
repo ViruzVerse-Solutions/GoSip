@@ -20,17 +20,20 @@ export default function ItemPage() {
   const { state, dispatch } = useCart()
   const { t } = useLanguage()
 
-  const { items } = useBranchData()
+  const { items, branch } = useBranchData()
   const item = items.find((i) => i.id === itemId)
+  
+  const hasMenuFeature = branch.features?.includes('menu') ?? true;
+  const canOrder = branch.features?.includes('qr_ordering') ?? true;
 
   // Use the pre-fetched item details directly
   const cartItem = state.items.find((i) => i.itemId === itemId)
   const cartQuantity = cartItem?.quantity ?? 0
 
-  if (!item) {
+  if (!item || !hasMenuFeature) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-gray-500">{t('itemNotFound')}</div>
+        <div className="text-gray-500">{!hasMenuFeature ? t('menuUnavailable') || 'Menu Unavailable' : t('itemNotFound')}</div>
       </div>
     )
   }
@@ -83,7 +86,7 @@ export default function ItemPage() {
           )}
         </div>
 
-        {!isOutOfStock && (
+        {!isOutOfStock && canOrder && (
           <div className="mt-6">
             {cartQuantity === 0 ? (
               <button
