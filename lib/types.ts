@@ -6,6 +6,7 @@ export interface Branch {
   phone?: string
   logo_url?: string
   is_active: boolean
+  features?: string[]
 }
 
 export interface Category {

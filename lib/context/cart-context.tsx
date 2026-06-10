@@ -1,6 +1,7 @@
 'use client'
 
 import { createContext, useContext, useReducer, useState, useEffect, ReactNode } from 'react'
+import { useParams } from 'next/navigation'
 
 interface CartItemData {
   itemId: string
@@ -66,9 +67,14 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [isCartOpen, setIsCartOpen] = useState(false)
   const [isMounted, setIsMounted] = useState(false)
 
+  const params = useParams()
+  const branchSlug = params?.branch as string | undefined
+
   // Load from localStorage on mount
   useEffect(() => {
-    const saved = localStorage.getItem('gosip-cart-ids')
+    if (!branchSlug) return
+    const storageKey = `gosip-cart-${branchSlug}`
+    const saved = localStorage.getItem(storageKey)
     if (saved) {
       try {
         const items = JSON.parse(saved)
@@ -77,11 +83,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
           const isValidSchema = items.every((i: any) => i.itemId !== undefined && i.price !== undefined)
           
           if (!isValidSchema) {
-            localStorage.removeItem('gosip-cart-ids')
+            localStorage.removeItem(storageKey)
           } else {
             // Restore cart in a single dispatch
             dispatch({ type: 'RESTORE_CART', payload: items })
           }
+        } else {
+          dispatch({ type: 'CLEAR_CART' })
         }
       } catch (e) {
         // Cart data in localStorage is corrupted or from an old schema — discard it safely.
@@ -89,18 +97,22 @@ export function CartProvider({ children }: { children: ReactNode }) {
         if (process.env.NODE_ENV === 'development') {
           console.warn('[GoSip] Failed to restore cart from localStorage — clearing:', e)
         }
-        localStorage.removeItem('gosip-cart-ids')
+        localStorage.removeItem(storageKey)
+        dispatch({ type: 'CLEAR_CART' })
       }
+    } else {
+      dispatch({ type: 'CLEAR_CART' })
     }
     setIsMounted(true)
-  }, [])
+  }, [branchSlug])
 
   // Save to localStorage when items change, but only after mount
   useEffect(() => {
-    if (isMounted) {
-      localStorage.setItem('gosip-cart-ids', JSON.stringify(state.items))
+    if (isMounted && branchSlug) {
+      const storageKey = `gosip-cart-${branchSlug}`
+      localStorage.setItem(storageKey, JSON.stringify(state.items))
     }
-  }, [state.items, isMounted])
+  }, [state.items, isMounted, branchSlug])
 
   const totalItems = state.items.reduce((sum: number, i: { quantity: number }) => sum + i.quantity, 0)
   const totalPrice = state.items.reduce((sum: number, i) => sum + i.price * i.quantity, 0)

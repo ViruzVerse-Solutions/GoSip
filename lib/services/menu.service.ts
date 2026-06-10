@@ -1,5 +1,6 @@
 import { unstable_cache } from "next/cache";
 import { supabaseBrowser } from "../supabase/client";
+import { supabaseServer } from "../supabase/server";
 import type {
   Branch,
   Category,
@@ -9,14 +10,53 @@ import type {
 // ── Branch ──────────────────────────────────────────────────────────────────
 export const fetchBranchBySlug = async (slug: string): Promise<Branch | null> => {
   const fetchFn = async () => {
-    const { data, error } = await supabaseBrowser
+    const { data, error } = await supabaseServer
       .from("branches")
-      .select("id, name, slug, logo_url, is_active")
+      .select(`
+        id, 
+        name, 
+        slug, 
+        logo_url, 
+        is_active,
+        branch_subscriptions (
+          status,
+          plans (
+            features
+          )
+        )
+      `)
       .eq("slug", slug)
       .eq("is_active", true)
-      .maybeSingle();
+      .single();
+      
     if (error) console.error("fetchBranchBySlug error:", error);
-    return (data as Branch) ?? null;
+    
+    if (!data) return null;
+
+    // Determine features from active subscription
+    let features: string[] = []; // Default to no features if subscription cannot be verified
+    const sub = (Array.isArray(data.branch_subscriptions) ? data.branch_subscriptions[0] : data.branch_subscriptions) as any;
+    if (sub) {
+      const activeStatuses = ['active', 'trial', 'grace'];
+      if (activeStatuses.includes(sub.status) && sub.plans) {
+        const plans = Array.isArray(sub.plans) ? sub.plans[0] : sub.plans;
+        if (plans?.features) {
+          features = plans.features;
+        }
+      } else {
+        // Expired or cancelled subscriptions have no active features
+        features = [];
+      }
+    }
+
+    return {
+      id: data.id,
+      name: data.name,
+      slug: data.slug,
+      logo_url: data.logo_url,
+      is_active: data.is_active,
+      features
+    } as Branch;
   };
 
   if (process.env.NODE_ENV === 'development') {
@@ -26,7 +66,7 @@ export const fetchBranchBySlug = async (slug: string): Promise<Branch | null> =>
   return unstable_cache(
     fetchFn,
     [`branch-by-slug-v2-${slug}`],
-    { revalidate: 3600, tags: ["branch"] }
+    { revalidate: 60, tags: ["branch"] }
   )();
 };
 
