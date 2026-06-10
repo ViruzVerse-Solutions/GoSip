@@ -7,10 +7,12 @@ import {
   useContext,
   useState,
   useEffect,
+  useRef,
   ReactNode,
 } from "react";
 import { useParams } from "next/navigation";
 import { v4 as uuidv4 } from "uuid";
+import { subscribeToOrder } from "@/lib/services/order.service";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 /** A table session lives for 4 hours from when the table was first selected. */
@@ -212,6 +214,56 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const removeOrder = (orderId: string) => {
     setActiveOrders((prev) => prev.filter((o) => o.orderId !== orderId));
   };
+
+  // ── Global real-time subscription for active orders ───────────────────────
+  const subscribedOrderIds = useRef<Set<string>>(new Set());
+  const unsubscribeFns = useRef<Map<string, () => void>>(new Map());
+
+  // We define these in refs to avoid closure stale issues in the effect
+  const onOrderCollectedRef = useRef(onOrderCollected);
+  const updateOrderStatusRef = useRef(updateOrderStatus);
+
+  useEffect(() => {
+    onOrderCollectedRef.current = onOrderCollected;
+    updateOrderStatusRef.current = updateOrderStatus;
+  }, [onOrderCollected, updateOrderStatus]);
+
+  useEffect(() => {
+    if (!isMounted) return;
+
+    activeOrders.forEach((order) => {
+      if (subscribedOrderIds.current.has(order.orderId)) return;
+      subscribedOrderIds.current.add(order.orderId);
+
+      const unsub = subscribeToOrder(order.orderId, (updated: any) => {
+        if (updated.status) {
+          if (updated.status === 'collected') {
+            onOrderCollectedRef.current(order.orderId);
+          } else {
+            updateOrderStatusRef.current(order.orderId, updated.status);
+          }
+        }
+      });
+      unsubscribeFns.current.set(order.orderId, unsub);
+    });
+
+    // Cleanup subscriptions for removed orders
+    unsubscribeFns.current.forEach((unsub, orderId) => {
+      if (!activeOrders.some((o) => o.orderId === orderId)) {
+        unsub();
+        unsubscribeFns.current.delete(orderId);
+        subscribedOrderIds.current.delete(orderId);
+      }
+    });
+  }, [activeOrders, isMounted]);
+
+  useEffect(() => {
+    return () => {
+      unsubscribeFns.current.forEach((unsub) => unsub());
+      unsubscribeFns.current.clear();
+      subscribedOrderIds.current.clear();
+    };
+  }, []);
 
   return (
     <SessionContext.Provider

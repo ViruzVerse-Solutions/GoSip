@@ -115,7 +115,7 @@ export async function POST(req: NextRequest) {
     // ── 6.1. Verify table is not occupied by another active order ─────────────
     const { data: existingActiveOrders, error: checkOccupiedError } = await supabaseServer
       .from('orders')
-      .select('id, session_token')
+        .select('id, session_token, total')
       .eq('branch_id', branchId)
       .eq('table_number', trimmedTable)
       .in('status', ['pending'])
@@ -127,7 +127,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (existingActiveOrders && existingActiveOrders.length > 0) {
-      // Check if any active order belongs to a different session (or has no session token)
+      // Check if any truly active order belongs to a different session (or has no session token)
       const hasOtherSessionOrder = existingActiveOrders.some(
         (order) => !order.session_token || order.session_token !== sessionToken
       )

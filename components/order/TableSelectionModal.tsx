@@ -87,15 +87,15 @@ function ErrorState({ onRetry }: { onRetry: () => void }) {
 export default function TableSelectionModal({ branchId, isOpen, onClose, onSelect }: Props) {
   const titleId = useId()
   const { t } = useLanguage()
-  const { sessionToken, tableNumber: sessionTableNumber } = useSession()
+  const { sessionToken, tableNumber: sessionTableNumber, clearTableSession } = useSession()
 
-  const { data: tables, isLoading, error, mutate } = useSWR<{ id: string; table_number: string; is_free?: boolean }[]>(
+  const { data, isLoading, error, mutate } = useSWR<{ tables: { id: string; table_number: string; is_free?: boolean }[], isSessionActive: boolean }>(
     isOpen ? `tables-${branchId}-${sessionToken || ''}` : null,
     async () => {
       const url = sessionToken
         ? `/api/tables/${branchId}?sessionToken=${sessionToken}`
         : `/api/tables/${branchId}`;
-      const res = await fetch(url);
+      const res = await fetch(url, { cache: 'no-store' });
       if (!res.ok) throw new Error('Failed to fetch tables');
       const data = await res.json();
       return data;
@@ -115,12 +115,15 @@ export default function TableSelectionModal({ branchId, isOpen, onClose, onSelec
     }
   }, [isOpen, mutate])
 
+  // We no longer aggressively clear the local session based on backend data.
+  // The session naturally expires or is cleared by user actions.
+
   // Real-time subscription to order changes to update table occupancy instantly
   useEffect(() => {
     if (!isOpen) return
 
-    const channel = supabaseBrowser
-      .channel('table-occupancy-updates')
+    const orderChannel = supabaseBrowser
+      .channel('table-occupancy-updates-orders')
       .on(
         'postgres_changes',
         {
@@ -135,8 +138,24 @@ export default function TableSelectionModal({ branchId, isOpen, onClose, onSelec
       )
       .subscribe()
 
+    const cashChannel = supabaseBrowser
+      .channel('table-occupancy-updates-cash')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'cash_collections',
+        },
+        () => {
+          mutate()
+        }
+      )
+      .subscribe()
+
     return () => {
-      supabaseBrowser.removeChannel(channel)
+      supabaseBrowser.removeChannel(orderChannel)
+      supabaseBrowser.removeChannel(cashChannel)
     }
   }, [isOpen, branchId, mutate])
 
@@ -169,6 +188,8 @@ export default function TableSelectionModal({ branchId, isOpen, onClose, onSelec
   const renderContent = () => {
     if (isLoading) return <TableSkeleton />
     if (error) return <ErrorState onRetry={handleRetry} />
+    
+    const tables = data?.tables
     if (!tables || tables.length === 0) return <EmptyState />
 
     return (

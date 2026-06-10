@@ -155,8 +155,9 @@ export function subscribeToOrderUpdates(
   orderId: string,
   onUpdate: (updatedOrder: any) => void,
 ) {
+  const uniqueId = Math.random().toString(36).substring(7);
   const channel = supabaseBrowser
-    .channel(`order-${orderId}`)
+    .channel(`order-${orderId}-${uniqueId}`)
     .on(
       "postgres_changes",
       {
