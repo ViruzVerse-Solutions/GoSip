@@ -112,10 +112,7 @@ export default function LanguageSelector() {
                         hover:bg-primary-50 active:bg-primary-100
                       "
                     >
-                      {/* Flag + native name */}
-                      <span className="text-lg leading-none shrink-0" aria-hidden>
-                        {l.flag}
-                      </span>
+                      {/* Native name + English name */}
                       <span className="flex-1 min-w-0">
                         <span
                           className="block text-sm font-semibold text-gray-800 leading-tight"
