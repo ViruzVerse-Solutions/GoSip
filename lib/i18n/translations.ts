@@ -9,17 +9,16 @@ export interface Language {
   name:      string        // display name in that language
   englishName: string      // English name shown in dropdown
   direction: 'ltr' | 'rtl'
-  flag:      string        // emoji flag
 }
 
 export const LANGUAGES: Language[] = [
-  { code: 'en', name: 'English',   englishName: 'English',   direction: 'ltr', flag: '🇮🇳' },
-  { code: 'hi', name: 'हिन्दी',     englishName: 'Hindi',     direction: 'ltr', flag: '🇮🇳' },
-  { code: 'ta', name: 'தமிழ்',     englishName: 'Tamil',     direction: 'ltr', flag: '🇮🇳' },
-  { code: 'ml', name: 'മലയാളം',    englishName: 'Malayalam', direction: 'ltr', flag: '🇮🇳' },
-  { code: 'te', name: 'తెలుగు',    englishName: 'Telugu',    direction: 'ltr', flag: '🇮🇳' },
-  { code: 'kn', name: 'ಕನ್ನಡ',    englishName: 'Kannada',   direction: 'ltr', flag: '🇮🇳' },
-  { code: 'ur', name: 'اردو',      englishName: 'Urdu',      direction: 'rtl', flag: '🇮🇳' },
+  { code: 'en', name: 'English',   englishName: 'English',   direction: 'ltr' },
+  { code: 'hi', name: 'हिन्दी',     englishName: 'Hindi',     direction: 'ltr' },
+  { code: 'ta', name: 'தமிழ்',     englishName: 'Tamil',     direction: 'ltr' },
+  { code: 'ml', name: 'മലയാളം',    englishName: 'Malayalam', direction: 'ltr' },
+  { code: 'te', name: 'తెలుగు',    englishName: 'Telugu',    direction: 'ltr' },
+  { code: 'kn', name: 'ಕನ್ನಡ',    englishName: 'Kannada',   direction: 'ltr' },
+  { code: 'ur', name: 'اردو',      englishName: 'Urdu',      direction: 'rtl' },
 ]
 
 // ── Translation dictionary ────────────────────────────────────────────────────
