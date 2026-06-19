@@ -14,10 +14,20 @@ import {
   MdCancel,
   MdQrCode,
   MdAccessTime,
+  MdReceipt,
+  MdVerified,
 } from "react-icons/md";
 import { fetchOrder, subscribeToOrder } from "@/lib/services/order.service";
 import { useSession } from "@/lib/context/session-context";
 import { useLanguage } from "@/lib/context/language-context";
+import { Cormorant_Garamond } from "next/font/google";
+
+const cormorant = Cormorant_Garamond({
+  subsets: ["latin"],
+  weight: ["300", "400", "600", "700"],
+  variable: "--font-cormorant",
+  display: "swap",
+});
 
 const ESTIMATE_MS = 5 * 60 * 1000;
 const MONTHS = [
@@ -89,130 +99,105 @@ const StepRow = ({
   states: [StepState, StepState];
   isCancelled?: boolean;
 }) => {
-  const { t } = useLanguage()
+  const { t } = useLanguage();
   const labels = [
     t('received'),
     isCancelled ? t('cancelled') : t('delivered'),
   ];
 
-  const stepStyle = (s: StepState) => {
+  const getStepVisuals = (s: StepState) => {
     if (s === "done")
       return {
         bg: "var(--color-primary-600)",
-        border: "none",
-        color: "#fff",
-        labelColor: "var(--color-primary-700)",
+        borderColor: "var(--color-primary-500)",
+        iconColor: "#ffffff",
+        labelColor: "var(--color-primary-800)",
+        shadow: "0 0 20px rgba(var(--color-primary-rgb), 0.25)",
       };
     if (s === "active")
       return {
-        bg: "#fff",
-        border: "2px solid var(--color-primary-500)",
-        color: "var(--color-primary-600)",
+        bg: "#ffffff",
+        borderColor: "var(--color-primary-500)",
+        iconColor: "var(--color-primary-600)",
         labelColor: "var(--color-primary-600)",
+        shadow: "0 8px 20px rgba(0,0,0,0.06)",
       };
     if (s === "cancelled")
       return {
-        bg: "#fff0f0",
-        border: "1.5px solid #ffb3b3",
-        color: "#e53935",
-        labelColor: "#e53935",
+        bg: "#fee2e2",
+        borderColor: "#fca5a5",
+        iconColor: "#dc2626",
+        labelColor: "#dc2626",
+        shadow: "none",
       };
     return {
-      bg: "#f0f0f0",
-      border: "1.5px solid #e0e0e0",
-      color: "#bdbdbd",
-      labelColor: "#bdbdbd",
+      bg: "#f8f9fa",
+      borderColor: "#f1f3f5",
+      iconColor: "#dee2e6",
+      labelColor: "#adb5bd",
+      shadow: "none",
     };
   };
 
   const icons = [
-    <svg
-      key="check"
-      width="13"
-      height="13"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2.5}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M20 6L9 17l-5-5" />
-    </svg>,
-    <svg
-      key="star"
-      width="13"
-      height="13"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M20 6L9 17l-5-5" />
-    </svg>,
+    <MdReceipt key="rcv" size={20} />,
+    isCancelled ? <MdCancel key="x" size={22} /> : <MdVerified key="star" size={22} />
   ];
 
-  const cancelIcon = (
-    <svg
-      key="x"
-      width="13"
-      height="13"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2.5}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M18 6L6 18M6 6l12 12" />
-    </svg>
-  );
-
   return (
-    <div
-      className="flex items-center px-5 py-4"
-      style={{ borderBottom: "1px solid #f0f0f0" }}
-    >
-      {states.map((s, i) => {
-        const style = stepStyle(s);
-        return (
-          <div key={i} className="contents">
-            <div className="flex flex-col items-center shrink-0">
-              <div
-                className="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
-                style={{
-                  background: style.bg,
-                  border: style.border,
-                  color: style.color,
+    <div className="relative px-10 py-8 bg-white/40" style={{ borderBottom: "1px solid rgba(0,0,0,0.03)" }}>
+      <div className="relative flex justify-between items-start z-10">
+        
+        {/* Inactive Track Background */}
+        <div 
+          className="absolute top-[24px] h-[3px] bg-gray-100 rounded-full -z-10"
+          style={{ left: "3.5rem", right: "3.5rem" }} 
+        />
+        
+        {/* Active Track Fill */}
+        <motion.div 
+          className="absolute top-[24px] h-[3px] bg-gradient-to-r from-primary-400 to-primary-600 rounded-full -z-10"
+          style={{ left: "3.5rem" }}
+          initial={{ width: "0%" }}
+          animate={{ width: states[1] === "done" || states[1] === "cancelled" ? "calc(100% - 7rem)" : "0%" }}
+          transition={{ duration: 1, ease: "easeOut" }}
+        />
+
+        {states.map((s, i) => {
+          const vis = getStepVisuals(s);
+          const isPulsing = s === "active";
+          return (
+            <div key={i} className="flex flex-col items-center gap-3 relative">
+              {/* Optional glow ring for active step */}
+              {isPulsing && (
+                <div 
+                  className="absolute top-0 w-12 h-12 rounded-full border border-primary-300 animate-ping opacity-20" 
+                  style={{ animationDuration: '2s' }}
+                />
+              )}
+              <motion.div
+                initial={false}
+                animate={{ 
+                  backgroundColor: vis.bg, 
+                  borderColor: vis.borderColor,
+                  boxShadow: vis.shadow,
+                  scale: isPulsing ? 1.05 : 1
                 }}
+                className="w-12 h-12 rounded-full flex items-center justify-center border-2 transition-colors duration-500 relative z-10"
+                style={{ color: vis.iconColor }}
               >
-                {s === "cancelled" ? cancelIcon : icons[i]}
-              </div>
-              <span
-                className="mt-1.5 font-bold uppercase"
-                style={{
-                  fontSize: 9,
-                  letterSpacing: "0.4px",
-                  color: style.labelColor,
-                }}
+                {icons[i]}
+              </motion.div>
+              <span 
+                className="font-bold tracking-[2px] uppercase"
+                style={{ fontSize: 10, color: vis.labelColor, transition: "color 0.5s ease" }}
               >
                 {labels[i]}
               </span>
             </div>
-            {i < 1 && (
-              <div
-                className="flex-1 h-0.5 mx-1 mb-5 rounded-sm"
-                style={{
-                  background:
-                    s === "done" ? "var(--color-primary-400)" : "#e8e8e8",
-                }}
-              />
-            )}
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
     </div>
   );
 };
@@ -226,138 +211,69 @@ const TimerDisplay = ({ remaining }: { remaining: number }) => {
   const secs = Math.floor((absRemaining % 60000) / 1000);
   const progress = isDelayed ? 1 : Math.min(1 - remaining / ESTIMATE_MS, 1);
 
-  const themeColor = isDelayed ? "#ea580c" : "var(--color-primary-700)";
-  const themeBg = isDelayed ? "#fff7ed" : "#f8fdf8";
-  const themeBorder = isDelayed ? "#ffedd5" : "#e8e8e8";
-
   return (
     <div
-      className="text-center px-5 py-6"
+      className="text-center px-5 py-10"
       style={{
-        borderBottom: "1px solid #f0f0f0",
-        background: themeBg,
+        borderBottom: "1px solid #f5f5f5",
+        background: isDelayed ? "#fff7ed" : "#fff",
         transition: "all 0.5s ease-in-out",
       }}
     >
       <div
-        className="flex items-center justify-center gap-1.5 mb-4"
+        className="flex items-center justify-center gap-1.5 mb-2"
         style={{
-          fontSize: 10,
+          fontSize: 11,
           fontWeight: 700,
-          color: isDelayed ? "#ea580c" : "#9e9e9e",
+          color: isDelayed ? "#ea580c" : "var(--color-primary-400)",
           letterSpacing: "2px",
           textTransform: "uppercase",
-          fontFamily: "var(--font-cormorant)",
         }}
       >
         <MdAccessTime
-          style={{ fontSize: 13, color: isDelayed ? "#ea580c" : "var(--color-primary-500)" }}
+          style={{ fontSize: 15, color: isDelayed ? "#ea580c" : "var(--color-primary-500)" }}
         />
         {isDelayed ? t('orderDelayed') : t('estimatedWait')}
       </div>
-      <div className="flex items-center justify-center gap-1 mb-1">
-        {isDelayed && (
-          <div
-            className="flex items-center justify-center rounded-xl"
-            style={{
-              width: 36,
-              height: 60,
-              background: "#fff",
-              border: `1px solid ${themeBorder}`,
-              fontFamily: "'DM Mono', monospace",
-              fontSize: 32,
-              fontWeight: 600,
-              color: "#ea580c",
-              boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
-            }}
-          >
-            +
-          </div>
-        )}
-        {[pad(mins)[0], pad(mins)[1]].map((d, i) => (
-          <div
-            key={i}
-            className="flex items-center justify-center rounded-xl"
-            style={{
-              width: 44,
-              height: 60,
-              background: "#fff",
-              border: `1px solid ${themeBorder}`,
-              fontFamily: "'DM Mono', monospace",
-              fontSize: 40,
-              fontWeight: 500,
-              color: themeColor,
-              boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
-            }}
-          >
-            {d}
-          </div>
-        ))}
+      
+      <div className="flex items-center justify-center gap-1 mb-6">
         <span
           style={{
-            fontFamily: "'DM Mono', monospace",
-            fontSize: 36,
-            fontWeight: 400,
-            color: isDelayed ? "#fdba74" : "#bdbdbd",
-            padding: "0 3px",
-            animation: "blink-colon 1s step-end infinite",
+            fontFamily: "var(--font-cormorant)",
+            fontSize: 72,
+            fontWeight: 300,
+            lineHeight: 1,
+            color: isDelayed ? "#ea580c" : "var(--color-primary-800)",
+            letterSpacing: "-2px",
           }}
         >
-          :
+          {isDelayed ? "+" : ""}{pad(mins)}
+          <span style={{ animation: "blink-colon 1s step-end infinite", opacity: 0.5 }}>:</span>
+          {pad(secs)}
         </span>
-        {[pad(secs)[0], pad(secs)[1]].map((d, i) => (
-          <div
-            key={i}
-            className="flex items-center justify-center rounded-xl"
-            style={{
-              width: 44,
-              height: 60,
-              background: "#fff",
-              border: `1px solid ${themeBorder}`,
-              fontFamily: "'DM Mono', monospace",
-              fontSize: 40,
-              fontWeight: 500,
-              color: themeColor,
-              boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
-            }}
-          >
-            {d}
-          </div>
-        ))}
       </div>
+
       <div
-        className="flex justify-center mb-4"
-        style={{
-          fontSize: 10,
-          color: "#bdbdbd",
-          letterSpacing: "1px",
-          textTransform: "uppercase",
-        }}
-      >
-        {isDelayed && <span style={{ width: 36 }} />}
-        <span style={{ width: 90, textAlign: "center" }}>min</span>
-        <span style={{ width: 90, textAlign: "center" }}>sec</span>
-      </div>
-      <div
-        className="mx-auto mb-3 overflow-hidden rounded-full"
-        style={{ height: 4, background: "#e8e8e8", maxWidth: 200 }}
+        className="mx-auto mb-4 overflow-hidden rounded-full"
+        style={{ height: 4, background: "#f0f0f0", maxWidth: 200 }}
       >
         <div
           style={{
             height: "100%",
             width: `${progress * 100}%`,
-            background: isDelayed ? "#ea580c" : "var(--color-primary-500)",
+            background: isDelayed ? "#ea580c" : "var(--color-primary-600)",
             borderRadius: 4,
             transition: "width 1s linear, background-color 0.5s ease",
           }}
         />
       </div>
+      
       {isDelayed ? (
         <p className="px-4 text-xs font-semibold text-orange-600 leading-relaxed max-w-sm mx-auto animate-pulse">
           {t('orderDelayedApology')}
         </p>
       ) : (
-        <p style={{ fontSize: 12, color: "#9e9e9e" }}>
+        <p style={{ fontSize: 13, color: "#9e9e9e" }}>
           {t('untilDelivered')}
         </p>
       )}
@@ -370,35 +286,28 @@ const ReadyBanner = () => {
   const { t } = useLanguage();
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.97 }}
-      animate={{ opacity: 1, scale: 1 }}
-      className="text-center px-5 py-8"
-      style={{ borderBottom: "1px solid #f0f0f0", background: "#f8fdf8" }}
+      initial={{ opacity: 0, scale: 0.97, y: 10 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      className="text-center px-6 py-12 relative overflow-hidden"
+      style={{ borderBottom: "1px solid rgba(0,0,0,0.03)", background: "linear-gradient(180deg, #f0fdf4 0%, #ffffff 100%)" }}
     >
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-green-100/50 via-transparent to-transparent pointer-events-none" />
       <div
-        className="mx-auto mb-4 w-16 h-16 rounded-full flex items-center justify-center"
+        className="relative mx-auto mb-6 w-20 h-20 rounded-full flex items-center justify-center shadow-lg shadow-green-500/10"
         style={{
-          background: "var(--color-primary-50)",
-          border: "2px solid var(--color-primary-200)",
+          background: "linear-gradient(135deg, #22c55e 0%, #16a34a 100%)",
+          border: "4px solid #dcfce7",
         }}
       >
-        <svg width="32" height="32" viewBox="0 0 36 36" fill="none">
-          <path
-            d="M9 18.5L15 24.5L27 12"
-            stroke="var(--color-primary-600)"
-            strokeWidth="2.8"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
+        <MdVerified className="text-white text-4xl drop-shadow-md" />
       </div>
       <p
-        className="font-extrabold text-gray-900 mb-1"
-        style={{ fontSize: 22, letterSpacing: "-0.5px" }}
+        className="font-bold text-gray-900 mb-2 relative"
+        style={{ fontSize: 32, fontFamily: "var(--font-cormorant)", letterSpacing: "-0.5px" }}
       >
         {t('orderDelivered')}
       </p>
-      <p className="text-gray-400 text-sm">{t('hopeYouEnjoy')}</p>
+      <p className="text-gray-500 text-sm font-bold tracking-widest relative uppercase" style={{ fontSize: "10px" }}>{t('hopeYouEnjoy')}</p>
     </motion.div>
   );
 };
@@ -408,41 +317,28 @@ const CollectedBanner = () => {
   const { t } = useLanguage();
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      className="text-center px-5 py-8"
-      style={{ borderBottom: "1px solid #e0f2e9", background: "#f0fdf4" }}
+      initial={{ opacity: 0, scale: 0.95, y: 10 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      className="text-center px-6 py-12 relative overflow-hidden"
+      style={{ borderBottom: "1px solid rgba(0,0,0,0.03)", background: "linear-gradient(180deg, #f0fdf4 0%, #ffffff 100%)" }}
     >
-      <motion.div
-        initial={{ scale: 0 }}
-        animate={{ scale: 1 }}
-        transition={{ type: "spring", stiffness: 260, damping: 20 }}
-        className="mx-auto mb-4 w-16 h-16 rounded-full flex items-center justify-center"
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-green-100/50 via-transparent to-transparent pointer-events-none" />
+      <div
+        className="relative mx-auto mb-6 w-20 h-20 rounded-full flex items-center justify-center shadow-lg shadow-green-500/10"
         style={{
-          background: "var(--color-primary-50)",
-          border: "2px solid var(--color-primary-300)",
+          background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+          border: "4px solid #d1fae5",
         }}
       >
-        <svg width="34" height="34" viewBox="0 0 36 36" fill="none">
-          <motion.path
-            d="M8 18l6 6L28 10"
-            stroke="var(--color-primary-600)"
-            strokeWidth="2.8"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            initial={{ pathLength: 0 }}
-            animate={{ pathLength: 1 }}
-            transition={{ duration: 0.5, delay: 0.2 }}
-          />
-        </svg>
-      </motion.div>
+        <MdPayment className="text-white text-4xl drop-shadow-md" />
+      </div>
       <p
-        className="font-extrabold text-gray-900 mb-1"
-        style={{ fontSize: 22, letterSpacing: "-0.5px" }}
+        className="font-bold text-gray-900 mb-2 relative"
+        style={{ fontSize: 32, fontFamily: "var(--font-cormorant)", letterSpacing: "-0.5px" }}
       >
         Payment Received
       </p>
-      <p className="text-gray-500 text-sm">Thank you, we hope you enjoyed!</p>
+      <p className="text-gray-500 text-sm font-bold tracking-widest relative uppercase" style={{ fontSize: "10px" }}>Thank you, we hope you enjoyed!</p>
     </motion.div>
   );
 };
@@ -452,24 +348,28 @@ const CancelledBanner = () => {
   const { t } = useLanguage();
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.97 }}
-      animate={{ opacity: 1, scale: 1 }}
-      className="text-center px-5 py-7"
-      style={{ borderBottom: "1px solid #ffe0e0", background: "#fff8f8" }}
+      initial={{ opacity: 0, scale: 0.97, y: 10 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      className="text-center px-6 py-12 relative overflow-hidden"
+      style={{ borderBottom: "1px solid rgba(0,0,0,0.03)", background: "linear-gradient(180deg, #fff1f2 0%, #ffffff 100%)" }}
     >
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-red-100/50 via-transparent to-transparent pointer-events-none" />
       <div
-        className="mx-auto mb-3 w-14 h-14 rounded-full flex items-center justify-center"
-        style={{ background: "#fff0f0", border: "1.5px solid #ffb3b3" }}
+        className="relative mx-auto mb-6 w-20 h-20 rounded-full flex items-center justify-center shadow-lg shadow-red-500/10"
+        style={{
+          background: "linear-gradient(135deg, #ef4444 0%, #dc2626 100%)",
+          border: "4px solid #fee2e2",
+        }}
       >
-        <MdCancel style={{ fontSize: 28, color: "#e53935" }} />
+        <MdCancel className="text-white text-4xl drop-shadow-md" />
       </div>
       <p
-        className="font-extrabold mb-1"
-        style={{ fontSize: 20, color: "#c62828" }}
+        className="font-bold mb-2 relative"
+        style={{ fontSize: 32, fontFamily: "var(--font-cormorant)", color: "#b91c1c", letterSpacing: "-0.5px" }}
       >
         {t('orderCancelled')}
       </p>
-      <p className="text-sm" style={{ color: "#ef9a9a" }}>
+      <p className="font-bold tracking-widest relative uppercase" style={{ fontSize: "10px", color: "#f87171" }}>
         {t('orderHasBeenCancelled')}
       </p>
     </motion.div>
@@ -487,62 +387,53 @@ const QRPanel = ({
   const { t } = useLanguage();
   return (
     <motion.div
-      initial={{ opacity: 0, y: 8 }}
+      initial={{ opacity: 0, y: 15 }}
       animate={{ opacity: 1, y: 0 }}
-      className="mx-4 mt-3 rounded-2xl overflow-hidden bg-white"
-      style={{ border: "1px solid #e8e8e8", boxShadow: "var(--shadow-card)" }}
+      className="mx-4 mt-6 rounded-[2rem] overflow-hidden bg-white/80 backdrop-blur-xl relative"
+      style={{ border: "1px solid rgba(255,255,255,0.8)", boxShadow: "0 10px 40px -10px rgba(0,0,0,0.05)" }}
     >
+      <div className="absolute inset-0 bg-gradient-to-br from-white/60 to-transparent pointer-events-none" />
       <div
-        className="flex items-center gap-2 px-4 py-3"
-        style={{ borderBottom: "1px solid #f0f0f0" }}
+        className="relative flex items-center gap-2 px-5 py-4 bg-gray-50/50"
+        style={{ borderBottom: "1px solid rgba(0,0,0,0.03)" }}
       >
-        <MdQrCode style={{ fontSize: 15, color: "var(--color-primary-500)" }} />
+        <MdQrCode style={{ fontSize: 16, color: "var(--color-primary-500)" }} />
         <span
-          className="font-bold uppercase"
-          style={{ fontSize: 10, letterSpacing: "2px", color: "#9e9e9e" }}
+          className="font-bold uppercase tracking-[2px] text-gray-500"
+          style={{ fontSize: 10 }}
         >
           {t('showToStaff')}
         </span>
       </div>
-      <div className="flex items-center gap-5 px-4 py-4">
+      <div className="relative flex items-center gap-6 px-6 py-6">
         <div
-          className="rounded-xl p-2 shrink-0"
-          style={{ background: "#f8f8f8", border: "1px solid #e8e8e8" }}
+          className="rounded-2xl p-2.5 shrink-0 bg-white shadow-sm"
+          style={{ border: "1px solid #f0f0f0" }}
         >
           <QRCodeSVG
             value={orderId}
-            size={84}
+            size={90}
             level="M"
-            bgColor="#f8f8f8"
-            fgColor="#1a1a1a"
+            bgColor="#ffffff"
+            fgColor="#111827"
             includeMargin={false}
           />
         </div>
-        <div className="flex flex-col gap-1">
-          <p
-            style={{
-              fontSize: 11,
-              color: "#9e9e9e",
-              fontWeight: 600,
-              letterSpacing: "0.5px",
-              textTransform: "uppercase",
-            }}
-          >
+        <div className="flex flex-col gap-1.5">
+          <p className="text-[10px] text-gray-400 font-bold tracking-[1.5px] uppercase">
             {t('orderNumber')}
           </p>
           <p
+            className="text-primary-600 font-bold leading-none"
             style={{
-              fontFamily: "'DM Mono', monospace",
-              fontSize: 44,
-              fontWeight: 600,
-              color: "var(--color-primary-600)",
+              fontFamily: "var(--font-cormorant)",
+              fontSize: 52,
               letterSpacing: "-2px",
-              lineHeight: 1,
             }}
           >
             #{orderNumber}
           </p>
-          <p style={{ fontSize: 11, color: "#bdbdbd", marginTop: 2 }}>
+          <p className="text-xs text-gray-400 font-medium mt-1">
             {t('scanOrShow')}
           </p>
         </div>
@@ -748,25 +639,39 @@ const unsubscribe = subscribeToOrder(order.id, (updated) => {
       ? ["done", "done"]
       : ["done", "pending"];
 
-  const headerBg = isCancelled ? "#c62828" : isCollected ? "#2e7d32" : "var(--color-primary-600)";
+  const headerBgClass = isCancelled 
+    ? "bg-red-800" 
+    : isCollected 
+      ? "bg-green-800" 
+      : "bg-gradient-to-br from-primary-700 to-primary-900";
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-8">
+    <div className={`min-h-screen relative overflow-hidden bg-[#fbfbfb] pb-24 ${cormorant.variable}`}>
+      {/* Ambient Background Blobs */}
+      <div className="fixed top-[10%] -left-20 w-96 h-96 bg-primary-200/20 rounded-full blur-[80px] pointer-events-none" />
+      <div className="fixed top-[40%] -right-20 w-[30rem] h-[30rem] bg-primary-100/30 rounded-full blur-[100px] pointer-events-none" />
+
       {/* Header */}
       <div
-        className="relative px-5 pt-10 pb-14 rounded-b-3xl overflow-hidden"
-        style={{ background: headerBg, boxShadow: "var(--shadow-header)" }}
+        className={`relative px-6 pt-12 pb-24 rounded-b-[2.5rem] overflow-hidden ${headerBgClass}`}
+        style={{ boxShadow: "0 20px 40px -15px rgba(0,0,0,0.3)" }}
       >
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-white/10 via-transparent to-transparent opacity-60 pointer-events-none" />
         <div
-          className="absolute -top-10 -right-10 w-36 h-36 rounded-full pointer-events-none"
-          style={{ background: "rgba(255,255,255,0.07)" }}
+          className="absolute -top-12 -right-12 w-64 h-64 rounded-full blur-3xl opacity-40 pointer-events-none"
+          style={{ background: "rgba(255,255,255,0.15)" }}
+        />
+        <div
+          className="absolute -bottom-10 -left-10 w-56 h-56 rounded-full blur-3xl opacity-30 pointer-events-none"
+          style={{ background: "rgba(255,255,255,0.1)" }}
         />
         <button
           onClick={() => router.push(`/${branch}/orders`)}
-          className="relative z-10 flex items-center gap-2 mb-6 px-4 py-1.5 rounded-full text-sm font-semibold text-white"
+          className="relative z-10 flex items-center gap-2 mb-8 px-5 py-2 rounded-full text-sm font-bold text-white backdrop-blur-md transition-transform active:scale-95"
           style={{
-            background: "rgba(255,255,255,0.15)",
-            border: "1px solid rgba(255,255,255,0.25)",
+            background: "linear-gradient(135deg, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0.05) 100%)",
+            border: "1px solid rgba(255,255,255,0.3)",
+            boxShadow: "0 8px 32px 0 rgba(0, 0, 0, 0.1)"
           }}
         >
           <MdArrowBack className="w-4 h-4" /> Back
@@ -793,8 +698,8 @@ const unsubscribe = subscribeToOrder(order.id, (updated) => {
                 <span className="w-1.5 h-1.5 rounded-full bg-white" /> Cancelled
               </div>
               <h1
-                className="text-3xl font-extrabold text-white mb-1"
-                style={{ letterSpacing: "-0.8px" }}
+                className="text-4xl md:text-5xl font-bold text-white mb-2 tracking-tight drop-shadow-md"
+                style={{ fontFamily: "var(--font-cormorant)" }}
               >
                 Order Cancelled
               </h1>
@@ -822,8 +727,8 @@ const unsubscribe = subscribeToOrder(order.id, (updated) => {
                 <span className="w-1.5 h-1.5 rounded-full bg-white" /> Paid
               </div>
               <h1
-                className="text-3xl font-extrabold text-white mb-1"
-                style={{ letterSpacing: "-0.8px" }}
+                className="text-4xl md:text-5xl font-bold text-white mb-2 tracking-tight drop-shadow-md"
+                style={{ fontFamily: "var(--font-cormorant)" }}
               >
                 Payment Received
               </h1>
@@ -851,8 +756,8 @@ const unsubscribe = subscribeToOrder(order.id, (updated) => {
                 <span className="w-1.5 h-1.5 rounded-full bg-white" /> {t('delivered')}
               </div>
               <h1
-                className="text-3xl font-extrabold text-white mb-1"
-                style={{ letterSpacing: "-0.8px" }}
+                className="text-4xl md:text-5xl font-bold text-white mb-2 tracking-tight drop-shadow-md"
+                style={{ fontFamily: "var(--font-cormorant)" }}
               >
                 {t('enjoyYourMeal')}
               </h1>
@@ -884,8 +789,8 @@ const unsubscribe = subscribeToOrder(order.id, (updated) => {
                 {order.status}
               </div>
               <h1
-                className="text-3xl font-extrabold text-white mb-1"
-                style={{ letterSpacing: "-0.8px" }}
+                className="text-4xl md:text-5xl font-bold text-white mb-2 tracking-tight drop-shadow-md"
+                style={{ fontFamily: "var(--font-cormorant)" }}
               >
                 {t('orderPlaced')}
               </h1>
@@ -899,18 +804,21 @@ const unsubscribe = subscribeToOrder(order.id, (updated) => {
 
       {/* Main card */}
       <motion.div
-        initial={{ opacity: 0, y: 16 }}
+        initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="mx-4 -mt-6 relative z-10"
+        className="mx-4 -mt-12 relative z-10"
       >
         <div
-          className="rounded-2xl overflow-hidden bg-white"
+          className="rounded-[2rem] overflow-hidden backdrop-blur-xl relative"
           style={{
-            boxShadow: "var(--shadow-card)",
-            border: "1px solid #e8e8e8",
+            background: "rgba(255, 255, 255, 0.8)",
+            boxShadow: "0 20px 50px -15px rgba(0,0,0,0.1)",
+            border: "1px solid rgba(255,255,255,0.9)",
           }}
         >
-          <AnimatePresence mode="wait">
+          <div className="absolute inset-0 bg-gradient-to-b from-white/80 to-white/20 pointer-events-none" />
+          <div className="relative">
+            <AnimatePresence mode="wait">
             {isCancelled ? (
               <CancelledBanner key="cb" />
             ) : isCollected ? (
@@ -962,64 +870,71 @@ const unsubscribe = subscribeToOrder(order.id, (updated) => {
 
           {/* Items header */}
           <div
-            className="px-5 pt-4 pb-2 font-bold uppercase text-gray-400"
-            style={{ fontSize: 10, letterSpacing: "2px" }}
+            className="px-6 pt-6 pb-2 font-bold uppercase text-gray-400 tracking-[2px]"
+            style={{ fontSize: 10 }}
           >
-            {t('yourOrder')} · {order.order_items.length}{" "}
+            {t('yourOrder')} <span className="mx-1.5 opacity-40">|</span> {order.order_items.length}{" "}
             {order.order_items.length === 1 ? t('item') : t('items')}
           </div>
 
           {/* Items */}
-          <div className="flex flex-col">
+          <div className="flex flex-col px-4 mb-4 mt-2">
             {order.order_items.map((item) => (
               <div
                 key={item.id}
-                className="flex items-center gap-2.5 px-5 py-2.5"
+                className="flex items-center gap-4 py-3.5 border-b border-gray-100/60 last:border-0"
                 style={{
-                  borderTop: "1px solid #f5f5f5",
                   opacity: isCancelled ? 0.5 : 1,
                 }}
               >
-                <span
-                  className="w-7 h-7 rounded-lg flex items-center justify-center font-bold shrink-0 text-primary-700 bg-primary-50"
+                <div
+                  className="w-10 h-10 rounded-xl flex items-center justify-center font-bold shrink-0 text-primary-700 bg-gray-50/80"
                   style={{
-                    fontSize: 11,
-                    border: "1px solid var(--color-primary-100)",
+                    fontSize: 13,
+                    border: "1px solid #f0f0f0",
                   }}
                 >
                   {item.quantity}×
-                </span>
-                <span
-                  className="flex-1 font-medium text-gray-800"
-                  style={{
-                    fontSize: 14,
-                    textDecoration: isCancelled ? "line-through" : "none",
-                  }}
-                >
-                  {item.menu_items?.name}
-                </span>
-                <span
-                  className="font-semibold text-gray-600"
-                  style={{
-                    fontSize: 14,
-                    textDecoration: isCancelled ? "line-through" : "none",
-                  }}
-                >
-                  ₹{item.price * item.quantity}
-                </span>
+                </div>
+                <div className="flex-1 flex items-baseline relative overflow-hidden group">
+                  <span
+                    className="font-bold text-gray-900 z-10 pr-2 bg-transparent"
+                    style={{
+                      fontSize: 15,
+                      textDecoration: isCancelled ? "line-through" : "none",
+                    }}
+                  >
+                    {item.menu_items?.name}
+                  </span>
+                  <div className="flex-1 border-b-2 border-dotted border-gray-200 opacity-50 mx-2 relative top-[-4px]" />
+                  <span
+                    className="font-bold text-gray-900 z-10 pl-2 bg-transparent"
+                    style={{
+                      fontFamily: "var(--font-cormorant)",
+                      fontSize: 18,
+                      textDecoration: isCancelled ? "line-through" : "none",
+                    }}
+                  >
+                    ₹{item.price * item.quantity}
+                  </span>
+                </div>
               </div>
             ))}
           </div>
 
           {/* Total */}
           <div
-            className="flex items-center justify-between mx-4 my-3 px-5 py-4 rounded-2xl bg-gray-50"
-            style={{ border: "1px solid #e8e8e8" }}
+            className="flex items-center justify-between mx-4 mt-4 mb-5 px-6 py-5 rounded-[1.5rem] relative overflow-hidden"
+            style={{ 
+              background: "linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%)",
+              border: "1px solid #f0f0f0",
+              boxShadow: "inset 0 2px 10px rgba(0,0,0,0.01)" 
+            }}
           >
-            <div className="flex items-center gap-2 text-sm text-gray-400">
+            <div className="flex items-center gap-2.5 text-sm font-bold tracking-wide uppercase text-gray-400" style={{ fontSize: 11 }}>
               <MdPayment
                 style={{
-                  fontSize: 16,
+                  fontSize: 18,
                   color: isCancelled ? "#e53935" : "var(--color-primary-500)",
                 }}
               />
@@ -1027,11 +942,12 @@ const unsubscribe = subscribeToOrder(order.id, (updated) => {
             </div>
             <span
               style={{
-                fontFamily: "'DM Mono', monospace",
-                fontSize: 28,
-                fontWeight: 500,
-                color: isCancelled ? "#e53935" : "var(--color-primary-700)",
+                fontFamily: "var(--font-cormorant)",
+                fontSize: 36,
+                fontWeight: 700,
+                color: isCancelled ? "#e53935" : "var(--color-primary-800)",
                 letterSpacing: "-1px",
+                lineHeight: 1,
                 textDecoration: isCancelled ? "line-through" : "none",
                 opacity: isCancelled ? 0.6 : 1,
               }}
@@ -1063,11 +979,25 @@ const unsubscribe = subscribeToOrder(order.id, (updated) => {
               </p>
             )}
           </div>
+          </div>
         </div>
       </motion.div>
 
       <QRPanel orderId={order.id} orderNumber={order.daily_order_number} />
-      <div style={{ height: 16 }} />
+      
+      {/* Floating CTA */}
+      <div className="fixed bottom-0 inset-x-0 z-50 p-6 pointer-events-none">
+        <div className="max-w-lg mx-auto relative">
+          <div className="absolute inset-0 bg-gradient-to-t from-gray-50 via-gray-50 to-transparent -bottom-6 -inset-x-6 -top-12 -z-10" />
+          <button
+            onClick={() => router.push(`/${branch}`)}
+            className="w-full block bg-gradient-to-r from-primary-600 to-primary-700 hover:from-primary-700 hover:to-primary-800 active:scale-[0.98] text-white font-bold py-4 rounded-2xl transition-all shadow-xl shadow-primary-900/20 pointer-events-auto"
+            style={{ fontFamily: "var(--font-cormorant)", fontSize: "20px", letterSpacing: "1px" }}
+          >
+            {t('backToMenu')}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
