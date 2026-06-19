@@ -38,7 +38,6 @@ const BranchAvatar = memo(({ logoUrl, name }: { logoUrl?: string | null; name: s
           sizes="44px"
           className="object-cover"
           priority
-          unoptimized
           onError={() => setImgError(true)}
         />
       </div>

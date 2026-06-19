@@ -19,6 +19,7 @@ export default function BranchClient() {
   const { branch, categories, items } = useBranchData()
   const { t } = useLanguage()
   const [search, setSearch] = useState('')
+  const [isSearchFocused, setIsSearchFocused] = useState(false)
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const [vegFilter, setVegFilter] = useState<'all' | 'veg' | 'nonveg'>('all')
 
@@ -56,13 +57,24 @@ export default function BranchClient() {
         </div>
       ) : (
         <>
-          <SearchBar value={search} onChange={setSearch} />
-      <HeroBanner branchId={branch.id} />
-      <CategoryChips
-        categories={categories.map(({ id, name }) => ({ id, name }))}
-        selected={selectedCategory}
-        onSelect={setSelectedCategory}
-      />
+          <SearchBar 
+            value={search} 
+            onChange={setSearch} 
+            onFocus={() => setIsSearchFocused(true)}
+            onBlur={() => setIsSearchFocused(false)}
+          />
+          
+          {/* Hide banner and categories when searching to make room for keyboard and results */}
+          {(!isSearchFocused && search.trim() === '') && (
+            <>
+              <HeroBanner branchId={branch.id} />
+              <CategoryChips
+                categories={categories.map(({ id, name }) => ({ id, name }))}
+                selected={selectedCategory}
+                onSelect={setSelectedCategory}
+              />
+            </>
+          )}
 
       <div className="flex items-center justify-between px-4 mt-4 mb-3">
         <h2 className="text-lg font-bold text-gray-900">{t('allItems')}</h2>

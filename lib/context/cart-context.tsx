@@ -74,7 +74,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!branchSlug) return
     const storageKey = `gosip-cart-${branchSlug}`
-    const saved = localStorage.getItem(storageKey)
+    let saved = null;
+    try {
+      saved = localStorage.getItem(storageKey)
+    } catch (e) {
+      console.warn('[GoSip] localStorage access denied', e)
+    }
     if (saved) {
       try {
         const items = JSON.parse(saved)
@@ -83,7 +88,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
           const isValidSchema = items.every((i: any) => i.itemId !== undefined && i.price !== undefined)
           
           if (!isValidSchema) {
-            localStorage.removeItem(storageKey)
+            try { localStorage.removeItem(storageKey) } catch (e) {}
           } else {
             // Restore cart in a single dispatch
             dispatch({ type: 'RESTORE_CART', payload: items })
@@ -97,7 +102,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         if (process.env.NODE_ENV === 'development') {
           console.warn('[GoSip] Failed to restore cart from localStorage — clearing:', e)
         }
-        localStorage.removeItem(storageKey)
+        try { localStorage.removeItem(storageKey) } catch (err) {}
         dispatch({ type: 'CLEAR_CART' })
       }
     } else {
@@ -110,7 +115,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (isMounted && branchSlug) {
       const storageKey = `gosip-cart-${branchSlug}`
-      localStorage.setItem(storageKey, JSON.stringify(state.items))
+      try {
+        localStorage.setItem(storageKey, JSON.stringify(state.items))
+      } catch (e) {
+        console.warn('[GoSip] Failed to save cart to localStorage', e)
+      }
     }
   }, [state.items, isMounted, branchSlug])
 

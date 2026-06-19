@@ -10,9 +10,33 @@ import {
   useRef,
   ReactNode,
 } from "react";
+
 import { useParams } from "next/navigation";
-import { v4 as uuidv4 } from "uuid";
 import { subscribeToOrder } from "@/lib/services/order.service";
+
+// ── Safe Helpers ──────────────────────────────────────────────────────────────
+const generateId = () => {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function(c) {
+    const r = (Math.random() * 16) | 0;
+    const v = c === "x" ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+};
+
+const safeStorage = {
+  getItem: (key: string) => {
+    try { return localStorage.getItem(key); } catch (e) { return null; }
+  },
+  setItem: (key: string, value: string) => {
+    try { localStorage.setItem(key, value); } catch (e) {}
+  },
+  removeItem: (key: string) => {
+    try { localStorage.removeItem(key); } catch (e) {}
+  }
+};
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 /** A table session lives for 4 hours from when the table was first selected. */
@@ -66,7 +90,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     try {
       // ── Restore table session ───────────────────────────────────────────
       const sessionKey = `gosip-session-${branchSlug}`;
-      const savedSession = localStorage.getItem(sessionKey);
+      const savedSession = safeStorage.getItem(sessionKey);
       if (savedSession) {
         const { token, table, createdAt } = JSON.parse(savedSession);
 
@@ -77,7 +101,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           setTableNumber(table);
         } else {
           // Session expired — clear it silently
-          localStorage.removeItem(sessionKey);
+          safeStorage.removeItem(sessionKey);
           setSessionToken(null);
           setTableNumber(null);
         }
@@ -88,7 +112,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
       // ── Restore active orders ───────────────────────────────────────────
       const ordersKey = `activeOrders-${branchSlug}`;
-      const storedOrders = localStorage.getItem(ordersKey);
+      const storedOrders = safeStorage.getItem(ordersKey);
       if (storedOrders) {
         const orders = JSON.parse(storedOrders);
         if (Array.isArray(orders)) {
@@ -96,7 +120,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           const validOrders = orders.filter((o: ActiveOrder) => o.expires > now);
           // Prune expired orders from storage
           if (validOrders.length !== orders.length) {
-            localStorage.setItem(ordersKey, JSON.stringify(validOrders));
+            safeStorage.setItem(ordersKey, JSON.stringify(validOrders));
           }
           setActiveOrders(validOrders);
         } else {
@@ -105,14 +129,14 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       } else {
         setActiveOrders([]);
         // Migration: old schema used 'lastOrder' key
-        const oldStored = localStorage.getItem("lastOrder");
+        const oldStored = safeStorage.getItem("lastOrder");
         if (oldStored) {
           const order = JSON.parse(oldStored);
           if (order.expires > Date.now()) {
             setActiveOrders([order]);
-            localStorage.setItem(ordersKey, JSON.stringify([order]));
+            safeStorage.setItem(ordersKey, JSON.stringify([order]));
           }
-          localStorage.removeItem("lastOrder");
+          safeStorage.removeItem("lastOrder");
         }
       }
     } catch (e) {
@@ -132,7 +156,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   // ── Persist orders ────────────────────────────────────────────────────────
   useEffect(() => {
     if (isMounted && branchSlug) {
-      localStorage.setItem(`activeOrders-${branchSlug}`, JSON.stringify(activeOrders));
+      safeStorage.setItem(`activeOrders-${branchSlug}`, JSON.stringify(activeOrders));
     }
   }, [activeOrders, isMounted, branchSlug]);
 
@@ -140,12 +164,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   /** Select a table — generates a fresh session token with a creation timestamp. */
   const selectTable = (table: string) => {
-    const token     = uuidv4();
+    const token     = generateId();
     const createdAt = Date.now();
     setSessionToken(token);
     setTableNumber(table);
     if (branchSlug) {
-      localStorage.setItem(
+      safeStorage.setItem(
         `gosip-session-${branchSlug}`,
         JSON.stringify({ token, table, createdAt }),
       );
@@ -162,7 +186,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setSessionToken(null);
     setTableNumber(null);
     if (branchSlug) {
-      localStorage.removeItem(`gosip-session-${branchSlug}`);
+      safeStorage.removeItem(`gosip-session-${branchSlug}`);
     }
   };
 
@@ -172,8 +196,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setTableNumber(null);
     setActiveOrders([]);
     if (branchSlug) {
-      localStorage.removeItem(`gosip-session-${branchSlug}`);
-      localStorage.removeItem(`activeOrders-${branchSlug}`);
+      safeStorage.removeItem(`gosip-session-${branchSlug}`);
+      safeStorage.removeItem(`activeOrders-${branchSlug}`);
     }
   };
 
@@ -206,7 +230,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setSessionToken(null);
     setTableNumber(null);
     if (branchSlug) {
-      localStorage.removeItem(`gosip-session-${branchSlug}`);
+      safeStorage.removeItem(`gosip-session-${branchSlug}`);
     }
   };
 

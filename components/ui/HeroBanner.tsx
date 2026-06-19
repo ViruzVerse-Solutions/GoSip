@@ -6,6 +6,7 @@ import { MdFastfood, MdVerified } from "react-icons/md";
 import { useBranchData } from "@/lib/context/branch-context";
 import { useLanguage } from "@/lib/context/language-context";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { Cormorant_Garamond } from "next/font/google";
 
 // ── Luxury font (matches landing page) ─────────────────────────────────
@@ -13,6 +14,7 @@ const cormorant = Cormorant_Garamond({
   subsets: ["latin"],
   weight: ["300", "400", "600", "700"],
   variable: "--font-cormorant",
+  display: "swap",
 });
 
 export default function HeroBanner({ branchId }: { branchId: string }) {
@@ -96,12 +98,18 @@ export default function HeroBanner({ branchId }: { branchId: string }) {
 
   const current = signatures[activeIndex];
 
+  const handlePointerCancel = () => {
+    isDragging.current = false;
+    setIsPaused(false);
+  };
+
   return (
     <div
-      className={`${cormorant.variable} mx-4 mt-4 mb-6 relative h-56 md:h-68 rounded-3xl overflow-hidden shadow-xl cursor-pointer select-none touch-none`}
+      className={`${cormorant.variable} mx-4 mt-4 mb-6 relative h-56 md:h-68 rounded-3xl overflow-hidden shadow-xl cursor-pointer select-none touch-pan-y`}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerCancel}
     >
       {/* Background */}
       <AnimatePresence mode="wait">
@@ -114,11 +122,13 @@ export default function HeroBanner({ branchId }: { branchId: string }) {
           className="absolute inset-0"
         >
           {current.image_url ? (
-            <img
+            <Image
               src={current.image_url}
               alt={current.name}
-              className="w-full h-full object-cover"
-              loading="lazy"
+              fill
+              sizes="(max-width: 768px) 100vw, 800px"
+              priority={activeIndex === 0}
+              className="object-cover"
             />
           ) : (
             <div className="w-full h-full bg-gradient-to-br from-primary-800 to-primary-900" />
