@@ -13,13 +13,13 @@ export interface Language {
 }
 
 export const LANGUAGES: Language[] = [
-  { code: 'en', name: 'English',   englishName: 'English',   direction: 'ltr', flag: '🇬🇧' },
+  { code: 'en', name: 'English',   englishName: 'English',   direction: 'ltr', flag: '🇮🇳' },
   { code: 'hi', name: 'हिन्दी',     englishName: 'Hindi',     direction: 'ltr', flag: '🇮🇳' },
   { code: 'ta', name: 'தமிழ்',     englishName: 'Tamil',     direction: 'ltr', flag: '🇮🇳' },
   { code: 'ml', name: 'മലയാളം',    englishName: 'Malayalam', direction: 'ltr', flag: '🇮🇳' },
   { code: 'te', name: 'తెలుగు',    englishName: 'Telugu',    direction: 'ltr', flag: '🇮🇳' },
   { code: 'kn', name: 'ಕನ್ನಡ',    englishName: 'Kannada',   direction: 'ltr', flag: '🇮🇳' },
-  { code: 'ur', name: 'اردو',      englishName: 'Urdu',      direction: 'rtl', flag: '🇵🇰' },
+  { code: 'ur', name: 'اردو',      englishName: 'Urdu',      direction: 'rtl', flag: '🇮🇳' },
 ]
 
 // ── Translation dictionary ────────────────────────────────────────────────────
