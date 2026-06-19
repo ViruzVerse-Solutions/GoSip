@@ -2,7 +2,7 @@
 
 'use client'
 
-import { memo, useCallback } from 'react'
+import { memo, useCallback, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
@@ -21,15 +21,16 @@ const BADGE_MAX = 9
 
 // ─── BranchAvatar ─────────────────────────────────────────────────────────────
 const BranchAvatar = memo(({ logoUrl, name }: { logoUrl?: string | null; name: string }) => {
+  const [imgError, setImgError] = useState(false)
   const initials = name
     .split(' ')
     .slice(0, 2)
     .map((w) => w[0]?.toUpperCase() ?? '')
     .join('')
 
-  if (logoUrl) {
+  if (logoUrl && !imgError) {
     return (
-      <div className="shrink-0 relative h-11 w-11 rounded-full overflow-hidden border border-gray-200/80 shadow-sm ring-2 ring-white">
+      <div className="shrink-0 relative h-11 w-11 min-w-[44px] rounded-full overflow-hidden border border-gray-200/80 shadow-sm ring-2 ring-white">
         <Image
           src={logoUrl}
           alt={`${name} logo`}
@@ -37,6 +38,8 @@ const BranchAvatar = memo(({ logoUrl, name }: { logoUrl?: string | null; name: s
           sizes="44px"
           className="object-cover"
           priority
+          unoptimized
+          onError={() => setImgError(true)}
         />
       </div>
     )
