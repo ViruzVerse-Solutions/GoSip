@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { MdShoppingCart } from 'react-icons/md'
 import { useCart } from '@/lib/context/cart-context'
 import { useLanguage } from '@/lib/context/language-context'
+import { usePathname } from 'next/navigation'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const CURRENCY = '₹'
@@ -13,11 +14,15 @@ const CURRENCY = '₹'
 function CartBar() {
   const { totalItems, totalPrice, openCart } = useCart()
   const { t } = useLanguage()
+  const pathname = usePathname()
   const handleOpen = useCallback(() => openCart(), [openCart])
+
+  // Hide the CartBar when the user is viewing their orders or order status
+  const isOrderPage = pathname?.includes('/orders') || pathname?.includes('/order/')
 
   return (
     <AnimatePresence>
-      {totalItems > 0 && (
+      {totalItems > 0 && !isOrderPage && (
         <motion.div
           key="cart-bar"
           initial={{ y: 80, opacity: 0 }}

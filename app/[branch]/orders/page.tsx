@@ -16,6 +16,14 @@ import {
   MdInbox,
   MdAccessTime,
 } from "react-icons/md";
+import { Cormorant_Garamond } from "next/font/google";
+
+const cormorant = Cormorant_Garamond({
+  subsets: ["latin"],
+  weight: ["300", "400", "600", "700"],
+  variable: "--font-cormorant",
+  display: "swap",
+});
 
 const STATUS_STYLE: Record<
   string,
@@ -162,15 +170,24 @@ const unsub = subscribeToOrder(order.orderId, (updated) => {
   );
 
   return (
-    <div className="min-h-screen pb-32 bg-gray-50">
-      {/* Header */}
+    <div className={`min-h-screen pb-32 relative overflow-hidden bg-[#fbfbfb] ${cormorant.variable}`}>
+      {/* Ambient Background Blobs */}
+      <div className="fixed top-[10%] -left-20 w-96 h-96 bg-primary-200/20 rounded-full blur-[80px] pointer-events-none" />
+      <div className="fixed top-[40%] -right-20 w-[30rem] h-[30rem] bg-primary-100/30 rounded-full blur-[100px] pointer-events-none" />
+
+      {/* Luxury Header */}
       <div
-        className="bg-primary-600 text-white px-5 pt-10 pb-14 rounded-b-3xl relative overflow-hidden"
-        style={{ boxShadow: "var(--shadow-header)" }}
+        className="bg-gradient-to-br from-primary-800 via-primary-900 to-black text-white px-6 pt-14 pb-24 rounded-b-[2.5rem] relative overflow-hidden"
+        style={{ boxShadow: "0 20px 40px -15px rgba(0,0,0,0.3)" }}
       >
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-primary-400/20 via-transparent to-transparent opacity-60" />
         <div
-          className="absolute -top-10 -right-10 w-36 h-36 rounded-full"
-          style={{ background: "rgba(255,255,255,0.06)" }}
+          className="absolute -top-12 -right-12 w-64 h-64 rounded-full blur-3xl opacity-40 pointer-events-none"
+          style={{ background: "rgba(255,255,255,0.15)" }}
+        />
+        <div
+          className="absolute -bottom-20 -left-10 w-56 h-56 rounded-full blur-3xl opacity-30 pointer-events-none"
+          style={{ background: "rgba(255,255,255,0.1)" }}
         />
 
         <button
@@ -184,21 +201,25 @@ const unsub = subscribeToOrder(order.orderId, (updated) => {
           <MdArrowBack className="w-4 h-4" /> {t('back')}
         </button>
 
-        <div className="relative flex items-center gap-3">
+        <div className="relative flex items-center gap-4 mt-2">
           <div
-            className="w-11 h-11 rounded-2xl flex items-center justify-center"
-            style={{ background: "rgba(255,255,255,0.15)" }}
+            className="w-14 h-14 rounded-2xl flex items-center justify-center backdrop-blur-xl"
+            style={{ 
+              background: "linear-gradient(135deg, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0.05) 100%)",
+              border: "1px solid rgba(255,255,255,0.2)",
+              boxShadow: "0 8px 32px 0 rgba(0, 0, 0, 0.1)"
+            }}
           >
-            <MdReceipt style={{ fontSize: 22, color: "#fff" }} />
+            <MdReceipt style={{ fontSize: 26, color: "#fff" }} />
           </div>
           <div>
             <h1
-              className="text-2xl font-bold text-white"
-              style={{ letterSpacing: "-0.5px" }}
+              className="text-4xl md:text-5xl font-bold text-white tracking-tight drop-shadow-lg"
+              style={{ fontFamily: "var(--font-cormorant)", letterSpacing: "-1px" }}
             >
               {t('yourOrders')}
             </h1>
-            <p className="text-white/70 text-sm">
+            <p className="text-white/80 text-sm font-medium tracking-wide uppercase" style={{ fontSize: "10px", letterSpacing: "1.5px" }}>
               {activeOrders.length > 0
                 ? `${activeOrders.length} ${activeOrders.length !== 1 ? t('orders') : t('order')}`
                 : t('noOrdersYet')}
@@ -208,16 +229,21 @@ const unsub = subscribeToOrder(order.orderId, (updated) => {
       </div>
 
       {/* List */}
-      <div className="max-w-lg mx-auto px-4 -mt-6 relative z-10 space-y-3 pb-6">
+      <div className="max-w-lg mx-auto px-4 -mt-10 relative z-10 space-y-4 pb-6">
         {sortedOrders.length === 0 ? (
           <motion.div
-            initial={{ opacity: 0, y: 10 }}
+            initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-white rounded-2xl flex flex-col items-center justify-center py-14 px-6 text-center"
-            style={{ boxShadow: "var(--shadow-card)" }}
+            className="rounded-[2rem] flex flex-col items-center justify-center py-20 px-6 text-center backdrop-blur-xl relative overflow-hidden"
+            style={{ 
+              background: "rgba(255, 255, 255, 0.7)",
+              border: "1px solid rgba(255,255,255,0.8)",
+              boxShadow: "0 10px 40px -10px rgba(0,0,0,0.05)"
+            }}
           >
-            <div className="w-14 h-14 rounded-full flex items-center justify-center mb-3 bg-gray-100">
-              <MdInbox style={{ fontSize: 26, color: "#9E9E9E" }} />
+            <div className="absolute inset-0 bg-gradient-to-b from-white/60 to-transparent pointer-events-none" />
+            <div className="w-20 h-20 rounded-full flex items-center justify-center mb-5 bg-white shadow-xl shadow-primary-900/5 relative z-10">
+              <MdInbox style={{ fontSize: 32, color: "var(--color-primary-300)" }} />
             </div>
             <p className="font-semibold text-gray-400 text-sm mb-1">
               {t('noOrdersYet')}
@@ -234,46 +260,51 @@ const unsub = subscribeToOrder(order.orderId, (updated) => {
             return (
               <motion.button
                 key={order.token}
-                initial={{ opacity: 0, y: 10 }}
+                initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.06 }}
+                transition={{ delay: i * 0.08, type: "spring", stiffness: 100 }}
+                whileHover={{ scale: 1.01, y: -2 }}
                 whileTap={{ scale: 0.98 }}
-                onClick={() =>
-                  router.push(`/${branchSlug}/order/${order.token}`)
-                }
-                className="w-full text-left bg-white rounded-2xl overflow-hidden transition-shadow hover:shadow-md"
-                style={{ boxShadow: "var(--shadow-card)" }}
+                onClick={() => router.push(`/${branchSlug}/order/${order.token}`)}
+                className="w-full text-left relative overflow-hidden group rounded-3xl backdrop-blur-xl transition-all"
+                style={{ 
+                  background: "rgba(255, 255, 255, 0.8)",
+                  border: "1px solid rgba(255,255,255,0.9)",
+                  boxShadow: "0 12px 30px -10px rgba(0,0,0,0.05)"
+                }}
               >
+                <div className="absolute inset-0 bg-gradient-to-br from-white/80 to-white/20 pointer-events-none" />
+                
                 {/* Top row */}
-                <div
-                  className="flex items-center justify-between px-5 pt-4 pb-3"
-                  style={{ borderBottom: "1px solid #f5f5f5" }}
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-primary-600 text-base">
+                <div className="relative flex items-center justify-between px-6 pt-6 pb-4">
+                  <div className="flex flex-col gap-1">
+                    <span 
+                      className="font-bold text-gray-900 text-2xl"
+                      style={{ fontFamily: "var(--font-cormorant)", letterSpacing: "-0.5px" }}
+                    >
                       Order #{order.dailyOrderNumber}
                     </span>
-                    <span className="w-1 h-1 rounded-full bg-gray-300" />
-                    <span className="flex items-center gap-1 text-gray-400 text-xs">
-                      <MdTableBar className="w-3.5 h-3.5 text-primary-500" />
+                    <span className="flex items-center gap-1.5 text-gray-500 text-xs font-medium tracking-wide uppercase">
+                      <MdTableBar className="w-4 h-4 text-primary-500" />
                       {t('table')} {order.tableNumber}
                     </span>
                   </div>
-                  <MdChevronRight className="w-5 h-5 text-gray-300" />
+                  <div className="w-10 h-10 rounded-full bg-primary-50 flex items-center justify-center text-primary-600 group-hover:bg-primary-600 group-hover:text-white transition-colors">
+                    <MdChevronRight className="w-6 h-6" />
+                  </div>
                 </div>
 
                 {/* Bottom row */}
-                <div className="flex items-center justify-between px-5 py-3">
-                  <span className="flex items-center gap-1 text-xs text-gray-400">
-                    <MdAccessTime className="w-3.5 h-3.5" />
-                    {placedAt(order.orderPlacedAt)} ·{" "}
-                    {timeAgoLocale(order.orderPlacedAt)}
+                <div className="relative flex items-center justify-between px-6 py-4 bg-gradient-to-r from-gray-50/50 to-transparent">
+                  <span className="flex items-center gap-1.5 text-xs text-gray-400 font-semibold uppercase tracking-wider" style={{ fontSize: "10px" }}>
+                    <MdAccessTime className="w-4 h-4 text-primary-400" />
+                    {placedAt(order.orderPlacedAt)} <span className="opacity-40">|</span> {timeAgoLocale(order.orderPlacedAt)}
                   </span>
                   <motion.span
                     key={order.status}
-                    initial={{ opacity: 0, scale: 0.9 }}
+                    initial={{ opacity: 0, scale: 0.8 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    className="px-2.5 py-1 rounded-full text-xs font-semibold"
+                    className="px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider shadow-sm"
                     style={{
                       color: statusStyle.color,
                       background: statusStyle.bg,
@@ -290,14 +321,17 @@ const unsub = subscribeToOrder(order.orderId, (updated) => {
       </div>
 
       {/* Footer CTA */}
-      <div className="fixed bottom-0 inset-x-0 z-50 bg-white/90 backdrop-blur-sm border-t border-gray-200 px-4 py-3">
-        <button
-          onClick={() => router.push(`/${branchSlug}`)}
-          className="w-full max-w-lg mx-auto block bg-primary-600 hover:bg-primary-700 active:scale-[0.98] text-white font-semibold py-3.5 rounded-xl transition-all"
-          style={{ boxShadow: "var(--shadow-btn)" }}
-        >
-          {t('backToMenu')}
-        </button>
+      <div className="fixed bottom-0 inset-x-0 z-50 p-6 pointer-events-none">
+        <div className="max-w-lg mx-auto relative">
+          <div className="absolute inset-0 bg-gradient-to-t from-gray-50 via-gray-50 to-transparent -bottom-6 -inset-x-6 -top-12 -z-10" />
+          <button
+            onClick={() => router.push(`/${branchSlug}`)}
+            className="w-full block bg-gradient-to-r from-primary-600 to-primary-700 hover:from-primary-700 hover:to-primary-800 active:scale-[0.98] text-white font-bold py-4 rounded-2xl transition-all shadow-xl shadow-primary-900/20 pointer-events-auto"
+            style={{ fontFamily: "var(--font-cormorant)", fontSize: "20px", letterSpacing: "1px" }}
+          >
+            {t('backToMenu')}
+          </button>
+        </div>
       </div>
     </div>
   );
