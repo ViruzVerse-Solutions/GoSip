@@ -5,15 +5,11 @@
 import { memo, useCallback, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useRouter } from 'next/navigation'
-import { Pacifico } from 'next/font/google'
 import { LuClipboardList } from 'react-icons/lu'
 
 import { useSession } from '@/lib/context/session-context'
 import LanguageSelector from '@/components/ui/LanguageSelector'
 import type { Branch } from '@/lib/types'
-
-// ─── Font ─────────────────────────────────────────────────────────────────────
-const pacifico = Pacifico({ weight: '400', subsets: ['latin'], display: 'swap' })
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const BADGE_MAX = 9
@@ -48,8 +44,8 @@ const BranchAvatar = memo(({ logoUrl, name }: { logoUrl?: string | null; name: s
         bg-gradient-to-br from-primary-50 to-primary-100
         border border-primary-200/60 shadow-sm ring-2 ring-white
         flex items-center justify-center select-none
-        ${pacifico.className}
       `}
+      style={{ fontFamily: 'var(--font-pacifico)' }}
     >
       <span className="text-sm text-primary-600 leading-none">{initials}</span>
     </div>
@@ -136,8 +132,8 @@ function BranchHeader({ branch }: { branch: Branch }) {
             <h1
               className={`
                 text-xl leading-tight truncate text-primary-600
-                ${pacifico.className}
               `}
+              style={{ fontFamily: 'var(--font-pacifico)' }}
             >
               {branch.name}
             </h1>

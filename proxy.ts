@@ -15,6 +15,11 @@ function generateNonce(): string {
 }
 
 export function proxy(request: NextRequest) {
+  // Completely bypass proxy middleware in development to avoid Turbopack / HMR issues on external IPs
+  if (process.env.NODE_ENV !== 'production') {
+    return NextResponse.next()
+  }
+
   // ── 0. Body size guard for API routes ────────────────────────────────────
   // Reject oversized POST bodies before they reach route handlers.
   if (request.method === 'POST' && request.nextUrl.pathname.startsWith('/api/')) {
@@ -53,8 +58,8 @@ export function proxy(request: NextRequest) {
     "font-src 'self' https://fonts.gstatic.com", 
 
 
-    // Images: same-origin + Supabase storage + data URIs (QR code SVGs)
-    "img-src 'self' data: https://*.supabase.co",
+    // Images: same-origin + Supabase storage + data URIs + blob (for uploads/local) + any https/http for external assets
+    "img-src 'self' data: blob: https: http:",
 
     // Fetch / WebSocket: Supabase REST + Realtime
     "connect-src 'self' https://*.supabase.co wss://*.supabase.co",
@@ -65,15 +70,17 @@ export function proxy(request: NextRequest) {
     // No iframing from external origins
     "frame-ancestors 'none'",
 
-    // Upgrade all HTTP sub-resource requests to HTTPS
-    'upgrade-insecure-requests',
+    // Upgrade all HTTP sub-resource requests to HTTPS (production only)
+    ...(process.env.NODE_ENV === 'production' ? ['upgrade-insecure-requests'] : []),
   ].join('; ')
 
   // ── 3. Clone request headers — inject nonce for layout consumption ────────
   const requestHeaders = new Headers(request.headers)
   requestHeaders.set('x-nonce', nonce)
 
-  requestHeaders.set('Content-Security-Policy', csp)
+  if (process.env.NODE_ENV === 'production') {
+    requestHeaders.set('Content-Security-Policy', csp)
+  }
 
 
   // ── 4. Build the response — forward enriched headers ─────────────────────
@@ -82,7 +89,9 @@ export function proxy(request: NextRequest) {
   })
 
   // ── 5. Set all security response headers ─────────────────────────────────
-  response.headers.set('Content-Security-Policy', csp)
+  if (process.env.NODE_ENV === 'production') {
+    response.headers.set('Content-Security-Policy', csp)
+  }
   response.headers.set('X-Frame-Options', 'DENY')
   response.headers.set('X-Content-Type-Options', 'nosniff')
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')
