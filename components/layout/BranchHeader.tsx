@@ -81,23 +81,25 @@ const OrderButton = memo(({ count, slug }: { count: number; slug: string }) => {
       <LuClipboardList className="w-[20px] h-[20px]" aria-hidden />
 
       <AnimatePresence>
-        <motion.span
-          key="badge"
-          initial={{ scale: 0.4, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          exit={{ scale: 0.4, opacity: 0 }}
-          transition={{ type: 'spring', stiffness: 500, damping: 22 }}
-          className="
-            absolute -top-0.5 -right-0.5
-            min-w-[18px] h-[18px] px-1
-            bg-primary-500 text-white
-            text-[10px] font-bold leading-none
-            rounded-full flex items-center justify-center
-            shadow-sm tabular-nums pointer-events-none
-          "
-        >
-          {label}
-        </motion.span>
+        {count > 0 && (
+          <motion.span
+            key="badge"
+            initial={{ scale: 0.4, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.4, opacity: 0 }}
+            transition={{ type: 'spring', stiffness: 500, damping: 22 }}
+            className="
+              absolute -top-0.5 -right-0.5
+              min-w-[18px] h-[18px] px-1
+              bg-primary-500 text-white
+              text-[10px] font-bold leading-none
+              rounded-full flex items-center justify-center
+              shadow-sm tabular-nums pointer-events-none
+            "
+          >
+            {label}
+          </motion.span>
+        )}
       </AnimatePresence>
     </motion.button>
   )
@@ -107,6 +109,10 @@ OrderButton.displayName = 'OrderButton'
 // ─── BranchHeader ─────────────────────────────────────────────────────────────
 function BranchHeader({ branch }: { branch: Branch }) {
   const { activeOrders } = useSession()
+
+  const activeOrdersCount = activeOrders.filter(
+    (order) => order.status !== 'collected' && order.status !== 'cancelled'
+  ).length
 
   return (
     <motion.header
@@ -153,7 +159,7 @@ function BranchHeader({ branch }: { branch: Branch }) {
         <div className="flex items-center gap-1">
           <LanguageSelector />
           {activeOrders.length > 0 && (
-            <OrderButton count={activeOrders.length} slug={branch.slug} />
+            <OrderButton count={activeOrdersCount} slug={branch.slug} />
           )}
         </div>
       </div>
