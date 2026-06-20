@@ -20,14 +20,6 @@ import {
 import { fetchOrder, subscribeToOrder } from "@/lib/services/order.service";
 import { useSession } from "@/lib/context/session-context";
 import { useLanguage } from "@/lib/context/language-context";
-import { Cormorant_Garamond } from "next/font/google";
-
-const cormorant = Cormorant_Garamond({
-  subsets: ["latin"],
-  weight: ["300", "400", "600", "700"],
-  variable: "--font-cormorant",
-  display: "swap",
-});
 
 const ESTIMATE_MS = 5 * 60 * 1000;
 const MONTHS = [
@@ -646,7 +638,7 @@ const unsubscribe = subscribeToOrder(order.id, (updated) => {
       : "bg-gradient-to-br from-primary-700 to-primary-900";
 
   return (
-    <div className={`min-h-screen relative overflow-hidden bg-[#fbfbfb] pb-12 ${cormorant.variable}`}>
+    <div className={`min-h-screen relative overflow-hidden bg-[#fbfbfb] pb-12`}>
       {/* Ambient Background Blobs */}
       <div className="fixed top-[10%] -left-20 w-96 h-96 bg-primary-200/20 rounded-full blur-[80px] pointer-events-none" />
       <div className="fixed top-[40%] -right-20 w-[30rem] h-[30rem] bg-primary-100/30 rounded-full blur-[100px] pointer-events-none" />
