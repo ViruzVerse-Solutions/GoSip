@@ -42,6 +42,7 @@ type OrderItem = {
   price: number;
   quantity: number;
   menu_items: { id: string; name: string; image_url: string };
+  remarks?: string;
 };
 
 type Order = {
@@ -52,6 +53,7 @@ type Order = {
   table_number: number;
   daily_order_number: number;
   order_items: OrderItem[];
+  session_token?: string;
 };
 
 // Module-level cache — survives client-side navigation, cleared on hard refresh
@@ -372,9 +374,15 @@ const CancelledBanner = () => {
 const QRPanel = ({
   orderId,
   orderNumber,
+  disabled = false,
+  totalAmount,
+  sessionToken,
 }: {
   orderId: string;
   orderNumber: number;
+  disabled?: boolean;
+  totalAmount: number;
+  sessionToken?: string;
 }) => {
   const { t } = useLanguage();
   return (
@@ -386,24 +394,33 @@ const QRPanel = ({
     >
       <div className="absolute inset-0 bg-gradient-to-br from-white/60 to-transparent pointer-events-none" />
       <div
-        className="relative flex items-center gap-2 px-5 py-4 bg-gray-50/50"
+        className="relative flex items-center justify-between px-5 py-4 bg-gray-50/50"
         style={{ borderBottom: "1px solid rgba(0,0,0,0.03)" }}
       >
-        <MdQrCode style={{ fontSize: 16, color: "var(--color-primary-500)" }} />
-        <span
-          className="font-bold uppercase tracking-[2px] text-gray-500"
-          style={{ fontSize: 10 }}
-        >
-          {t('showToStaff')}
-        </span>
+        <div className="flex items-center gap-2">
+          <MdQrCode style={{ fontSize: 16, color: "var(--color-primary-500)" }} />
+          <span
+            className="font-bold uppercase tracking-[2px] text-gray-500"
+            style={{ fontSize: 10 }}
+          >
+            {disabled ? "Bill Payment QR (Disabled)" : t('showToStaff')}
+          </span>
+        </div>
+        {disabled && (
+          <span className="text-[9px] font-bold bg-amber-50 border border-amber-100 text-amber-800 px-2 py-0.5 rounded-full uppercase tracking-wider shadow-sm animate-pulse shrink-0">
+            Preparing Food
+          </span>
+        )}
       </div>
       <div className="relative flex items-center gap-6 px-6 py-6">
         <div
-          className="rounded-2xl p-2.5 shrink-0 bg-white shadow-sm"
+          className={`rounded-2xl p-2.5 shrink-0 bg-white shadow-sm relative overflow-hidden transition-all duration-300 ${
+            disabled ? "opacity-20 blur-[3px] pointer-events-none select-none" : ""
+          }`}
           style={{ border: "1px solid #f0f0f0" }}
         >
           <QRCodeSVG
-            value={orderId}
+            value={sessionToken || orderId}
             size={90}
             level="M"
             bgColor="#ffffff"
@@ -412,21 +429,43 @@ const QRPanel = ({
           />
         </div>
         <div className="flex flex-col gap-1.5">
-          <p className="text-[10px] text-gray-400 font-bold tracking-[1.5px] uppercase">
-            {t('orderNumber')}
-          </p>
-          <p
-            className="text-primary-600 font-bold leading-none"
-            style={{
-              fontFamily: "var(--font-cormorant)",
-              fontSize: 52,
-              letterSpacing: "-2px",
-            }}
-          >
-            #{orderNumber}
-          </p>
-          <p className="text-xs text-gray-400 font-medium mt-1">
-            {t('scanOrShow')}
+          <div className="flex gap-4 items-baseline">
+            <div>
+              <p className="text-[10px] text-gray-400 font-bold tracking-[1.5px] uppercase">
+                {t('orderNumber')}
+              </p>
+              <p
+                className="text-primary-600 font-bold leading-none mt-1"
+                style={{
+                  fontFamily: "var(--font-cormorant)",
+                  fontSize: 32,
+                  letterSpacing: "-1.5px",
+                }}
+              >
+                #{orderNumber}
+              </p>
+            </div>
+            <div className="border-l border-gray-200 h-8 self-center mx-1" />
+            <div>
+              <p className="text-[10px] text-gray-400 font-bold tracking-[1.5px] uppercase">
+                Total Bill
+              </p>
+              <p
+                className="text-emerald-600 font-bold leading-none mt-1"
+                style={{
+                  fontFamily: "var(--font-cormorant)",
+                  fontSize: 32,
+                  letterSpacing: "-1px",
+                }}
+              >
+                ₹{totalAmount}
+              </p>
+            </div>
+          </div>
+          <p className="text-xs text-gray-400 font-medium mt-2 leading-relaxed">
+            {disabled 
+              ? "This QR code will enable once all your ordered items are prepared by the kitchen to ensure bill consistency."
+              : t('scanOrShow')}
           </p>
         </div>
       </div>
@@ -492,22 +531,17 @@ export default function OrderPage() {
     [token],
   );
 
-  // 1. Initial fetch — runs once per token, skips if already cached
+  // 1. Initial fetch — runs once per token, utilizing Stale-While-Revalidate
   useEffect(() => {
-    // Already have it in cache — no need to fetch
-    if (orderCache.has(token)) {
-      setTimeout(() => {
-        setOrder(orderCache.get(token)!);
-        setLoading(false);
-      }, 0);
-      return;
-    }
-
-    // Strict Mode double-invoke guard
-    if (fetchedRef.current) return;
-    fetchedRef.current = true;
-
     let cancelled = false;
+
+    // Load from cache instantly for optimal UX
+    if (orderCache.has(token)) {
+      setOrder(orderCache.get(token)!);
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
 
     const loadOrder = async () => {
       try {
@@ -517,13 +551,15 @@ export default function OrderPage() {
         if (data) {
           applyOrder(data as unknown as Order);
         } else {
-          // fetchOrder returned null — order doesn't exist
-          setNotFound(true);
+          // If not found and not in cache, show not found
+          if (!orderCache.has(token)) {
+            setNotFound(true);
+          }
           setLoading(false);
         }
       } catch (err) {
         console.error("[OrderPage] fetchOrder failed:", err);
-        if (!cancelled) {
+        if (!cancelled && !orderCache.has(token)) {
           setNotFound(true);
           setLoading(false);
         }
@@ -536,37 +572,63 @@ export default function OrderPage() {
     };
   }, [token, applyOrder]);
 
+
   // Reset fetchedRef when token changes (navigating between orders)
   useEffect(() => {
     fetchedRef.current = false;
   }, [token]);
 
+  // Listen for local order placement (addons) to refresh details instantly
+  useEffect(() => {
+    const handleOrderPlaced = async () => {
+      try {
+        const freshData = await fetchOrder(token);
+        if (freshData) {
+          setOrder(freshData as unknown as Order);
+          orderCache.set(token, freshData as unknown as Order);
+          if (freshData.status) {
+            updateOrderStatus(order?.id || freshData.id, freshData.status);
+          }
+        }
+      } catch (err) {
+        console.error("[OrderPage] Failed to refresh order on custom event:", err);
+      }
+    };
+
+    window.addEventListener("gosip-order-placed", handleOrderPlaced);
+    return () => {
+      window.removeEventListener("gosip-order-placed", handleOrderPlaced);
+    };
+  }, [token, updateOrderStatus, order?.id]);
+
   // 2. Real-time subscription — subscribes as soon as we have order.id
-  //    Fires immediately on any DB UPDATE to this order row
+  //    Fires immediately on any DB UPDATE to this order row or any other order in the session
 useEffect(() => {
   if (!order?.id) return;
 
-const unsubscribe = subscribeToOrder(order.id, (updated) => {
-  if (updated.status) {
-    updateOrderStatus(order.id, updated.status);
-
-    // ── Collected: update session but do not redirect ──────────────────────────
-    if (updated.status === "collected") {
-      onOrderCollected(order.id);
+  const unsubscribe = subscribeToOrder(order.id, async (updated) => {
+    try {
+      // Re-fetch the combined order to get the full aggregated details
+      const freshData = await fetchOrder(token);
+      if (freshData) {
+        setOrder(freshData as unknown as Order);
+        orderCache.set(token, freshData as unknown as Order);
+        if (freshData.status) {
+          updateOrderStatus(order.id, freshData.status);
+          if (freshData.status === "collected") {
+            onOrderCollected(order.id);
+          }
+        }
+      }
+    } catch (err) {
+      console.error("[OrderPage] Failed to refresh order on subscription update:", err);
     }
-  }
-  setOrder((prev) => {
-    if (!prev) return prev;
-    const merged = { ...prev, ...updated } as Order;
-    orderCache.set(token, merged);
-    return merged;
-  });
-});
+  }, order.session_token);
 
   return () => {
     unsubscribe();
   };
-}, [order?.id, token, branch, onOrderCollected, router]);
+}, [order?.id, order?.session_token, token, branch, onOrderCollected, updateOrderStatus]);
 
   // 3. Initialise countdown from order timestamp
   useEffect(() => {
@@ -890,13 +952,18 @@ const unsubscribe = subscribeToOrder(order.id, (updated) => {
                 </div>
                 <div className="flex-1 flex items-baseline relative overflow-hidden group">
                   <span
-                    className="font-bold text-gray-900 z-10 pr-2 bg-transparent"
+                    className="font-bold text-gray-900 z-10 pr-2 bg-transparent flex items-center gap-2"
                     style={{
                       fontSize: 15,
                       textDecoration: isCancelled ? "line-through" : "none",
                     }}
                   >
-                    {item.menu_items?.name}
+                    <span>{item.menu_items?.name}</span>
+                    {item.remarks === 'Addon' && (
+                      <span className="text-[9px] font-bold tracking-wider uppercase bg-amber-50 border border-amber-100 text-amber-700 px-1.5 py-0.5 rounded shadow-sm shrink-0">
+                        Addon
+                      </span>
+                    )}
                   </span>
                   <div className="flex-1 border-b-2 border-dotted border-gray-200 opacity-50 mx-2 relative top-[-4px]" />
                   <span
@@ -975,7 +1042,7 @@ const unsubscribe = subscribeToOrder(order.id, (updated) => {
         </div>
       </motion.div>
 
-      <QRPanel orderId={order.id} orderNumber={order.daily_order_number} />
+      <QRPanel orderId={order.id} orderNumber={order.daily_order_number} disabled={order.status === 'pending'} totalAmount={total} sessionToken={order.session_token} />
     </div>
   );
 }

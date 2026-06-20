@@ -12,7 +12,7 @@ import {
 } from "react";
 
 import { useParams } from "next/navigation";
-import { subscribeToOrder } from "@/lib/services/order.service";
+import { subscribeToOrder, fetchOrder } from "@/lib/services/order.service";
 
 // ── Safe Helpers ──────────────────────────────────────────────────────────────
 const generateId = () => {
@@ -54,13 +54,14 @@ export interface ActiveOrder {
   tableNumber:      string;
   orderPlacedAt:    number;
   status?:          string;
+  sessionToken?:    string;
 }
 
 interface SessionContextType {
   sessionToken:     string | null;
   tableNumber:      string | null;
   activeOrders:     ActiveOrder[];
-  selectTable:      (table: string) => string;
+  selectTable:      (table: string, existingToken?: string) => string;
   /** Clear the table identity (token + tableNumber) — called after payment collected. */
   clearTableSession: () => void;
   /** Full nuclear clear — clears table identity AND all active orders. */
@@ -163,8 +164,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   // ── Actions ───────────────────────────────────────────────────────────────
 
   /** Select a table — generates a fresh session token with a creation timestamp. */
-  const selectTable = (table: string) => {
-    const token     = generateId();
+  const selectTable = (table: string, existingToken?: string) => {
+    const token     = existingToken || generateId();
     const createdAt = Date.now();
     setSessionToken(token);
     setTableNumber(table);
@@ -207,14 +208,32 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       const filtered = prev.filter(
         (o) => o.token !== order.token && o.expires > now,
       );
+      
+      // Group orders: if we already have an active order with the same sessionToken, keep the main (earliest) one
+      if (order.sessionToken) {
+        const hasSessionOrder = filtered.some((o) => o.sessionToken === order.sessionToken);
+        if (hasSessionOrder) {
+          return filtered;
+        }
+      }
+      
       return [...filtered, order];
     });
   };
 
   const updateOrderStatus = (orderId: string, status: string) => {
-    setActiveOrders((prev) =>
-      prev.map((o) => (o.orderId === orderId ? { ...o, status } : o)),
-    );
+    setActiveOrders((prev) => {
+      const targetOrder = prev.find((o) => o.orderId === orderId);
+      if (!targetOrder) return prev;
+      return prev.map((o) => {
+        if (targetOrder.sessionToken && o.sessionToken === targetOrder.sessionToken) {
+          if (status === 'collected') {
+            return { ...o, status: 'collected' };
+          }
+        }
+        return o.orderId === orderId ? { ...o, status } : o;
+      });
+    });
   };
 
   /**
@@ -224,13 +243,37 @@ export function SessionProvider({ children }: { children: ReactNode }) {
    * and no longer shows as "Your Table" for this user.
    */
   const onOrderCollected = (orderId: string) => {
-    setActiveOrders((prev) =>
-      prev.map((o) => (o.orderId === orderId ? { ...o, status: 'collected' } : o)),
-    );
-    setSessionToken(null);
-    setTableNumber(null);
-    if (branchSlug) {
-      safeStorage.removeItem(`gosip-session-${branchSlug}`);
+    let shouldClear = false;
+
+    setActiveOrders((prev) => {
+      const targetOrder = prev.find((o) => o.orderId === orderId);
+      if (!targetOrder) return prev;
+      
+      const updatedOrders = prev.map((o) => {
+        if (targetOrder.sessionToken && o.sessionToken === targetOrder.sessionToken) {
+          return { ...o, status: 'collected' };
+        }
+        return o.orderId === orderId ? { ...o, status: 'collected' } : o;
+      });
+
+      if (targetOrder.sessionToken) {
+        const sessionOrders = updatedOrders.filter(
+          (o) => o.sessionToken === targetOrder.sessionToken
+        );
+        shouldClear = sessionOrders.every((o) => o.status === 'collected');
+      } else {
+        shouldClear = true;
+      }
+
+      return updatedOrders;
+    });
+
+    if (shouldClear) {
+      setSessionToken(null);
+      setTableNumber(null);
+      if (branchSlug) {
+        safeStorage.removeItem(`gosip-session-${branchSlug}`);
+      }
     }
   };
 
@@ -259,9 +302,14 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       if (subscribedOrderIds.current.has(order.orderId)) return;
       subscribedOrderIds.current.add(order.orderId);
 
-      const unsub = subscribeToOrder(order.orderId, (updated: any) => {
+      const unsub = subscribeToOrder(order.orderId, async (updated: any) => {
         if (updated.status) {
           if (updated.status === 'collected') {
+            try {
+              await fetchOrder(order.token);
+            } catch (err) {
+              console.error("[SessionContext] Failed to trigger self-healing GET:", err);
+            }
             onOrderCollectedRef.current(order.orderId);
           } else {
             updateOrderStatusRef.current(order.orderId, updated.status);

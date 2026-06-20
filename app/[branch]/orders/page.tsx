@@ -128,12 +128,20 @@ export default function OrdersHistoryPage() {
 
       subscribedIds.current.add(order.orderId);
 
-const unsub = subscribeToOrder(order.orderId, (updated) => {
-  if (updated.status) {
-    updateOrderStatusRef.current(order.orderId, updated.status);
-  }
-});
-
+      const unsub = subscribeToOrder(order.orderId, async (updated) => {
+        if (updated.status) {
+          if (updated.status === 'collected') {
+            try {
+              await fetchOrder(order.token);
+            } catch (err) {
+              console.error("[OrdersPage] Failed to trigger self-healing GET:", err);
+            }
+            onOrderCollected(order.orderId);
+          } else {
+            updateOrderStatusRef.current(order.orderId, updated.status);
+          }
+        }
+      });
       unsubscribeFns.current.set(order.orderId, unsub);
     });
 
@@ -157,7 +165,18 @@ const unsub = subscribeToOrder(order.orderId, (updated) => {
     };
   }, []);
 
-  const sortedOrders = [...activeOrders].sort(
+  // Group activeOrders by sessionToken to ensure we only show a single merged bill card per session
+  const uniqueOrdersMap = new Map<string, typeof activeOrders[number]>();
+  for (const order of activeOrders) {
+    const key = order.sessionToken || order.token;
+    const existing = uniqueOrdersMap.get(key);
+    if (!existing || order.orderPlacedAt < existing.orderPlacedAt) {
+      uniqueOrdersMap.set(key, order);
+    }
+  }
+  const uniqueActiveOrders = Array.from(uniqueOrdersMap.values());
+
+  const sortedOrders = uniqueActiveOrders.sort(
     (a, b) => b.orderPlacedAt - a.orderPlacedAt,
   );
 

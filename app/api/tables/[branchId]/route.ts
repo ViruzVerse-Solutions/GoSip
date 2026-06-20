@@ -49,7 +49,8 @@ export async function GET(
         .from('orders')
         .select('id, table_number, session_token, total')
         .eq('branch_id', branchId)
-        .in('status', ['pending'])
+        .neq('status', 'collected')
+        .neq('status', 'cancelled')
         .gte('created_at', twoHoursAgo),
     ])
 
@@ -60,6 +61,7 @@ export async function GET(
 
     // A table is occupied if it has active orders, unless ALL active orders on it belong to the current session token
     const occupiedTables = new Set<string>()
+    const tableActiveSessions = new Map<string, string>() // table_number -> session_token
     let isSessionActive = false
 
     if (activeOrders && activeOrders.length > 0) {
@@ -78,6 +80,12 @@ export async function GET(
         if (isOccupiedByOthers) {
           occupiedTables.add(tableNum)
         }
+
+        // Capture the active session token for this table
+        const activeSession = orders.find((o) => o.session_token)?.session_token
+        if (activeSession) {
+          tableActiveSessions.set(tableNum, activeSession)
+        }
       }
 
       // Check if the current session token has any active orders (including collected ones)
@@ -90,6 +98,7 @@ export async function GET(
       id: t.id,
       table_number: t.table_number,
       is_free: !occupiedTables.has(t.table_number),
+      active_session_token: tableActiveSessions.get(t.table_number) || null,
     })) ?? []
 
     return NextResponse.json({ tables: tablesWithStatus, isSessionActive }, {

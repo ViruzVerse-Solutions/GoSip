@@ -26,7 +26,7 @@ export default function CartModal({
 }) {
   const { state, dispatch, totalItems, totalPrice, isCartOpen, closeCart } =
     useCart();
-  const { tableNumber, selectTable, sessionToken, addOrder } = useSession();
+  const { tableNumber, selectTable, sessionToken, addOrder, activeOrders } = useSession();
   const { t } = useLanguage();
   const [loading, setLoading] = useState(false);
   const [showTableModal, setShowTableModal] = useState(false);
@@ -34,7 +34,7 @@ export default function CartModal({
 
   const router = useRouter();
 
-  const handlePlaceOrder = async (table: string) => {
+  const handlePlaceOrder = async (table: string, activeSessionToken?: string | null) => {
     if (!branchId || !branchSlug) return;
     setLoading(true);
     setError(null);
@@ -42,7 +42,9 @@ export default function CartModal({
 
     try {
       let currentSessionToken = sessionToken;
-      if (!tableNumber || !currentSessionToken) {
+      if (activeSessionToken) {
+        currentSessionToken = selectTable(table, activeSessionToken);
+      } else if (!tableNumber || !currentSessionToken || table !== tableNumber) {
         currentSessionToken = selectTable(table);
       }
       const result = await placeOrder(
@@ -60,11 +62,22 @@ export default function CartModal({
         orderPlacedAt: Date.now(),
         expires: Date.now() + 2 * 60 * 60 * 1000, // 2 hours
         status: "pending",
+        sessionToken: currentSessionToken || undefined,
       });
+
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('gosip-order-placed'));
+      }
+
+      // Find if we have a main active order in this session to redirect back to
+      const mainOrder = activeOrders.find(
+        (o) => o.status !== "collected" && o.status !== "cancelled"
+      );
+      const tokenToRedirect = mainOrder ? mainOrder.token : result.token;
 
       dispatch({ type: "CLEAR_CART" });
       closeCart();
-      router.push(`/${branchSlug}/order/${result.token}`);
+      router.push(`/${branchSlug}/order/${tokenToRedirect}`);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to place order');
     } finally {
@@ -222,15 +235,37 @@ export default function CartModal({
                   </div>
                 )}
 
-                <button
-                  onClick={onProceedClick}
-                  disabled={loading}
-                  className="w-full bg-primary-600 text-white font-bold py-3 rounded-xl disabled:opacity-50"
-                >
-                  {loading
-                    ? t('placingOrder')
-                    : `${t('proceedToOrder')} · ₹${totalPrice}`}
-                </button>
+                {tableNumber ? (
+                  <div className="space-y-2 mt-2">
+                    <button
+                      onClick={() => handlePlaceOrder(tableNumber)}
+                      disabled={loading}
+                      className="w-full bg-gradient-to-r from-primary-600 to-primary-700 hover:from-primary-700 hover:to-primary-800 active:scale-[0.98] text-white font-bold py-3.5 rounded-xl disabled:opacity-50 transition-all shadow-md shadow-primary-900/10 cursor-pointer"
+                    >
+                      {loading
+                        ? t('placingOrder')
+                        : `${t('confirmTableAndOrder').replace('{table}', tableNumber)} · ₹${totalPrice}`}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowTableModal(true)}
+                      disabled={loading}
+                      className="w-full py-2.5 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-50 transition-all border border-gray-200/60 cursor-pointer"
+                    >
+                      {t('selectDifferentTable')}
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={onProceedClick}
+                    disabled={loading}
+                    className="w-full bg-primary-600 text-white font-bold py-3 rounded-xl disabled:opacity-50 cursor-pointer"
+                  >
+                    {loading
+                      ? t('placingOrder')
+                      : `${t('proceedToOrder')} · ₹${totalPrice}`}
+                  </button>
+                )}
               </div>
             )}
           </motion.div>
@@ -241,7 +276,7 @@ export default function CartModal({
               branchId={branchId}
               isOpen={showTableModal}
               onClose={() => setShowTableModal(false)}
-              onSelect={(table: string) => handlePlaceOrder(table)}
+              onSelect={(table: string, activeSessionToken?: string | null) => handlePlaceOrder(table, activeSessionToken)}
             />
           )}
         </>

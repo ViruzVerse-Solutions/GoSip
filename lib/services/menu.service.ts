@@ -190,20 +190,50 @@ export const fetchSignatureItems = async (branchId: string, limit = 5): Promise<
 export function subscribeToOrderUpdates(
   orderId: string,
   onUpdate: (updatedOrder: any) => void,
+  sessionToken?: string | null,
 ) {
   const uniqueId = Math.random().toString(36).substring(7);
+
+  if (sessionToken) {
+    const channel = supabaseBrowser
+      .channel(`order-session-${sessionToken}-${uniqueId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "orders",
+        },
+        (payload) => {
+          const newRec = payload.new as any;
+          const oldRec = payload.old as any;
+          if (
+            (newRec && newRec.session_token === sessionToken) ||
+            (oldRec && oldRec.session_token === sessionToken)
+          ) {
+            onUpdate(newRec || oldRec || {});
+          }
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabaseBrowser.removeChannel(channel);
+    };
+  }
+
   const channel = supabaseBrowser
     .channel(`order-${orderId}-${uniqueId}`)
     .on(
       "postgres_changes",
       {
-        event: "UPDATE",
+        event: "*",
         schema: "public",
         table: "orders",
         filter: `id=eq.${orderId}`,
       },
       (payload) => {
-        onUpdate(payload.new);
+        onUpdate(payload.new || payload.old || {});
       },
     )
     .subscribe();

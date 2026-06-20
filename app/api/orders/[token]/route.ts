@@ -38,29 +38,142 @@ export async function GET(
 ) {
   try {
     const { token } = await params
-    const rawToken = decryptToken(token)
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+    const isUuid = typeof token === 'string' && UUID_RE.test(token)
 
-    if (!rawToken || !isValidToken(rawToken)) {
-      return NextResponse.json({ error: 'Invalid token format' }, { status: 400 })
-    }
-
-    const { data, error } = await supabaseServer
+    let dbQuery = supabaseServer
       .from('orders')
       .select(`
-        id, token, table_number, status, daily_order_number, total, created_at,
+        id, token, table_number, status, daily_order_number, total, created_at, session_token, branch_id,
         order_items (
-          id, quantity, price,
+          id, quantity, price, created_at,
           menu_items!order_items_item_id_fkey ( id, name, image_url )
         )
       `)
-      .eq('token', rawToken)
-      .single()
 
-    if (error || !data) {
+    if (isUuid) {
+      dbQuery = dbQuery.eq('id', token)
+    } else {
+      const rawToken = decryptToken(token)
+      if (!rawToken || !isValidToken(rawToken)) {
+        return NextResponse.json({ error: 'Invalid token format' }, { status: 400 })
+      }
+      dbQuery = dbQuery.eq('token', rawToken)
+    }
+
+    const { data: targetOrder, error: targetError } = await dbQuery.single()
+
+    if (targetError || !targetOrder) {
       return NextResponse.json({ error: 'Order not found' }, { status: 404 })
     }
 
-    return NextResponse.json(data)
+    // If session_token is present, aggregate all orders in this session
+    if (targetOrder.session_token) {
+      const { data: allOrders, error: allOrdersError } = await supabaseServer
+        .from('orders')
+        .select(`
+          id, token, table_number, status, daily_order_number, total, created_at, session_token, branch_id,
+          order_items (
+            id, quantity, price, created_at,
+            menu_items!order_items_item_id_fkey ( id, name, image_url )
+          )
+        `)
+        .eq('session_token', targetOrder.session_token)
+        .eq('branch_id', targetOrder.branch_id)
+
+      if (!allOrdersError && allOrders && allOrders.length > 0) {
+        // Sort orders by created_at ascending to find the main (earliest) order
+        const sortedOrders = [...allOrders].sort(
+          (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+        )
+        const mainOrder = sortedOrders[0]
+
+        const nonCancelledOrders = sortedOrders.filter((o) => o.status !== 'cancelled')
+
+        if (nonCancelledOrders.length > 0) {
+          const aggregatedItems = nonCancelledOrders.flatMap((o) =>
+            (o.order_items || []).map((item) => ({
+              ...item,
+              remarks: o.id !== mainOrder.id ? 'Addon' : undefined,
+            }))
+          )
+          // Sort aggregated items chronologically
+          aggregatedItems.sort(
+            (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+          )
+
+          const combinedTotal = nonCancelledOrders.reduce((sum, o) => sum + (o.total || 0), 0)
+
+          const statuses = nonCancelledOrders.map((o) => o.status)
+          let combinedStatus = 'pending'
+          
+          if (statuses.every((s) => s === 'collected')) {
+            combinedStatus = 'collected'
+          } else if (statuses.includes('pending')) {
+            combinedStatus = 'pending'
+          } else if (statuses.includes('delivered') || statuses.includes('ready')) {
+            combinedStatus = 'delivered'
+          } else {
+            combinedStatus = statuses[0] || 'pending'
+          }
+
+          // Self-heal: update all other active orders in this session to collected in the DB
+          if (combinedStatus === 'collected') {
+            const otherActiveOrders = nonCancelledOrders.filter(
+              (o) => o.status !== 'collected'
+            )
+            if (otherActiveOrders.length > 0) {
+              const otherIds = otherActiveOrders.map((o) => o.id)
+              await supabaseServer
+                .from('orders')
+                .update({ status: 'collected' })
+                .in('id', otherIds)
+            }
+          }
+
+          return NextResponse.json({
+            id: mainOrder.id,
+            token: mainOrder.token,
+            table_number: mainOrder.table_number,
+            daily_order_number: mainOrder.daily_order_number,
+            created_at: mainOrder.created_at,
+            session_token: mainOrder.session_token,
+            branch_id: mainOrder.branch_id,
+            total: combinedTotal,
+            status: combinedStatus,
+            order_items: aggregatedItems,
+          })
+        } else {
+          // All orders in the session are cancelled
+          const aggregatedItems = sortedOrders.flatMap((o) =>
+            (o.order_items || []).map((item) => ({
+              ...item,
+              remarks: o.id !== mainOrder.id ? 'Addon' : undefined,
+            }))
+          )
+          aggregatedItems.sort(
+            (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+          )
+
+          const combinedTotal = sortedOrders.reduce((sum, o) => sum + (o.total || 0), 0)
+
+          return NextResponse.json({
+            id: mainOrder.id,
+            token: mainOrder.token,
+            table_number: mainOrder.table_number,
+            daily_order_number: mainOrder.daily_order_number,
+            created_at: mainOrder.created_at,
+            session_token: mainOrder.session_token,
+            branch_id: mainOrder.branch_id,
+            total: combinedTotal,
+            status: 'cancelled',
+            order_items: aggregatedItems,
+          })
+        }
+      }
+    }
+
+    return NextResponse.json(targetOrder)
   } catch (err) {
     console.error('[GET /api/orders/[token]] Unexpected error:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
@@ -105,15 +218,22 @@ export async function PATCH(
 
     // ── 2. Token validation ───────────────────────────────────────────────────
     const { token } = await params
-    let rawToken = decryptToken(token)
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+    const isUuid = typeof token === 'string' && UUID_RE.test(token)
 
-    // Admin is already authenticated, so fall back to raw token if decryption failed
-    if (rawToken === null && isValidToken(token)) {
-      rawToken = token
-    }
+    let rawToken: string | null = null
 
-    if (!rawToken || !isValidToken(rawToken)) {
-      return NextResponse.json({ error: 'Invalid token format' }, { status: 400 })
+    if (!isUuid) {
+      rawToken = decryptToken(token)
+
+      // Admin is already authenticated, so fall back to raw token if decryption failed
+      if (rawToken === null && isValidToken(token)) {
+        rawToken = token
+      }
+
+      if (!rawToken || !isValidToken(rawToken)) {
+        return NextResponse.json({ error: 'Invalid token format' }, { status: 400 })
+      }
     }
 
     // ── 3. Parse & validate requested status ──────────────────────────────────
@@ -136,11 +256,17 @@ export async function PATCH(
     const newStatus = requestedStatus as AllowedStatus
 
     // ── 4. Fetch current order status ─────────────────────────────────────────
-    const { data: currentOrder, error: fetchError } = await supabaseServer
+    let currentOrderQuery = supabaseServer
       .from('orders')
-      .select('id, token, status')
-      .eq('token', rawToken)
-      .single()
+      .select('id, token, status, session_token, branch_id')
+
+    if (isUuid) {
+      currentOrderQuery = currentOrderQuery.eq('id', token)
+    } else {
+      currentOrderQuery = currentOrderQuery.eq('token', rawToken)
+    }
+
+    const { data: currentOrder, error: fetchError } = await currentOrderQuery.single()
 
     if (fetchError || !currentOrder) {
       return NextResponse.json({ error: 'Order not found' }, { status: 404 })
@@ -160,10 +286,31 @@ export async function PATCH(
     }
 
     // ── 6. Apply status update ────────────────────────────────────────────────
-    const { data: updated, error: updateError } = await supabaseServer
+    if (newStatus === 'collected' && currentOrder.session_token) {
+      const { error: batchUpdateError } = await supabaseServer
+        .from('orders')
+        .update({ status: 'collected' })
+        .eq('session_token', currentOrder.session_token)
+        .eq('branch_id', currentOrder.branch_id)
+        .neq('status', 'cancelled')
+
+      if (batchUpdateError) {
+        console.error('[PATCH /api/orders/[token]] Batch update failed:', batchUpdateError)
+        return NextResponse.json({ error: 'Failed to update session orders' }, { status: 500 })
+      }
+    }
+
+    let finalUpdateQuery = supabaseServer
       .from('orders')
       .update({ status: newStatus })
-      .eq('token', rawToken)
+
+    if (isUuid) {
+      finalUpdateQuery = finalUpdateQuery.eq('id', token)
+    } else {
+      finalUpdateQuery = finalUpdateQuery.eq('token', rawToken)
+    }
+
+    const { data: updated, error: updateError } = await finalUpdateQuery
       .select('id, token, status')
       .single()
 
