@@ -6,7 +6,7 @@ import { memo, useCallback, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useRouter } from 'next/navigation'
 import { Pacifico } from 'next/font/google'
-import { MdReceiptLong } from 'react-icons/md'
+import { LuClipboardList } from 'react-icons/lu'
 
 import { useSession } from '@/lib/context/session-context'
 import LanguageSelector from '@/components/ui/LanguageSelector'
@@ -78,7 +78,7 @@ const OrderButton = memo(({ count, slug }: { count: number; slug: string }) => {
         focus-visible:ring-primary-400 focus-visible:ring-offset-2
       "
     >
-      <MdReceiptLong className="w-[22px] h-[22px]" aria-hidden />
+      <LuClipboardList className="w-[20px] h-[20px]" aria-hidden />
 
       <AnimatePresence>
         <motion.span
