@@ -5,6 +5,9 @@
 import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
+  // Allow external IP testing
+  allowedDevOrigins: ['10.177.142.137', 'localhost'],
+
   // ── Image optimization ───────────────────────────────────────────────────
   images: {
     unoptimized: true,

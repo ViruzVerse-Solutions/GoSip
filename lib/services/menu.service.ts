@@ -11,6 +11,12 @@ const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://ypmplltikp
 
 function resolveLogoUrl(path?: string | null): string | undefined {
   if (!path) return undefined;
+  
+  const storageIndex = path.indexOf('/storage/v1/object/public/');
+  if (storageIndex !== -1) {
+    return `${SUPABASE_URL}${path.substring(storageIndex)}`;
+  }
+
   if (path.startsWith('http://') || path.startsWith('https://') || path.startsWith('/')) {
     return path;
   }
@@ -19,6 +25,12 @@ function resolveLogoUrl(path?: string | null): string | undefined {
 
 function resolveItemImageUrl(path?: string | null): string | undefined {
   if (!path) return undefined;
+
+  const storageIndex = path.indexOf('/storage/v1/object/public/');
+  if (storageIndex !== -1) {
+    return `${SUPABASE_URL}${path.substring(storageIndex)}`;
+  }
+
   if (path.startsWith('http://') || path.startsWith('https://') || path.startsWith('/')) {
     return path;
   }

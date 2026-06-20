@@ -5,20 +5,6 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
-import { Cormorant_Garamond, DM_Mono } from 'next/font/google'
-
-const cormorant = Cormorant_Garamond({
-  subsets: ['latin'],
-  weight: ['300', '400'],
-  style: ['normal', 'italic'],
-  variable: '--font-cormorant',
-})
-
-const dmMono = DM_Mono({
-  subsets: ['latin'],
-  weight: ['300', '400'],
-  variable: '--font-dm-mono',
-})
 
 export default function HomePage() {
   const [slug, setSlug] = useState('')
@@ -33,7 +19,7 @@ export default function HomePage() {
 
   return (
     <main
-      className={`${cormorant.variable} ${dmMono.variable} min-h-screen flex items-center justify-center px-6`}
+      className={`min-h-screen flex items-center justify-center px-6`}
       style={{ backgroundColor: '#F2EDE3' }}
     >
       <motion.div

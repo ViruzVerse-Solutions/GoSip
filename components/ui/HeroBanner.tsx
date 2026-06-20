@@ -6,15 +6,8 @@ import { MdFastfood, MdVerified } from "react-icons/md";
 import { useBranchData } from "@/lib/context/branch-context";
 import { useLanguage } from "@/lib/context/language-context";
 import { useRouter } from "next/navigation";
-import { Cormorant_Garamond } from "next/font/google";
 
 // ── Luxury font (matches landing page) ─────────────────────────────────
-const cormorant = Cormorant_Garamond({
-  subsets: ["latin"],
-  weight: ["300", "400", "600", "700"],
-  variable: "--font-cormorant",
-  display: "swap",
-});
 
 export default function HeroBanner({ branchId }: { branchId: string }) {
   const { signatures, branch } = useBranchData();
@@ -72,7 +65,7 @@ export default function HeroBanner({ branchId }: { branchId: string }) {
   if (!signatures || signatures.length === 0) {
     return (
       <div
-        className={`${cormorant.variable} mx-4 mt-4 mb-6 relative h-52 md:h-64 rounded-3xl overflow-hidden bg-gradient-to-br from-primary-700 to-primary-900 shadow-xl`}
+        className="mx-4 mt-4 mb-6 relative h-52 md:h-64 rounded-3xl overflow-hidden bg-gradient-to-br from-primary-700 to-primary-900 shadow-xl"
       >
         <div className="absolute inset-0 bg-black/10" />
         <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/10 rounded-full blur-xl" />
@@ -104,7 +97,7 @@ export default function HeroBanner({ branchId }: { branchId: string }) {
 
   return (
     <div
-      className={`${cormorant.variable} mx-4 mt-4 mb-6 relative h-56 md:h-68 rounded-3xl overflow-hidden shadow-xl cursor-pointer select-none touch-pan-y`}
+      className="mx-4 mt-4 mb-6 relative h-56 md:h-68 rounded-3xl overflow-hidden shadow-xl cursor-pointer select-none touch-pan-y"
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}

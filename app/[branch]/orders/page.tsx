@@ -16,14 +16,6 @@ import {
   MdInbox,
   MdAccessTime,
 } from "react-icons/md";
-import { Cormorant_Garamond } from "next/font/google";
-
-const cormorant = Cormorant_Garamond({
-  subsets: ["latin"],
-  weight: ["300", "400", "600", "700"],
-  variable: "--font-cormorant",
-  display: "swap",
-});
 
 const STATUS_STYLE: Record<
   string,
@@ -170,7 +162,7 @@ const unsub = subscribeToOrder(order.orderId, (updated) => {
   );
 
   return (
-    <div className={`min-h-screen pb-32 relative overflow-hidden bg-[#fbfbfb] ${cormorant.variable}`}>
+    <div className={`min-h-screen pb-32 relative overflow-hidden bg-[#fbfbfb]`}>
       {/* Ambient Background Blobs */}
       <div className="fixed top-[10%] -left-20 w-96 h-96 bg-primary-200/20 rounded-full blur-[80px] pointer-events-none" />
       <div className="fixed top-[40%] -right-20 w-[30rem] h-[30rem] bg-primary-100/30 rounded-full blur-[100px] pointer-events-none" />
