@@ -24,9 +24,10 @@ export async function placeOrder(
 }
 
 export async function fetchOrder(token: string) {
-  const res = await fetch(`/api/orders/${token}`, {
+  const res = await fetch(`/api/orders/${token}?t=${Date.now()}`, {
     method: 'GET',
     headers: { 'Content-Type': 'application/json' },
+    cache: 'no-store',
   })
   if (!res.ok) {
     if (res.status === 404) return null

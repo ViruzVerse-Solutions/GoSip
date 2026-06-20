@@ -14,7 +14,7 @@ interface Props {
   branchId: string
   isOpen: boolean
   onClose: () => void
-  onSelect: (tableNumber: string) => void
+  onSelect: (tableNumber: string, activeSessionToken?: string | null) => void
 }
 
 // No module-level static cache since table occupancy status is highly dynamic
@@ -89,7 +89,10 @@ export default function TableSelectionModal({ branchId, isOpen, onClose, onSelec
   const { t } = useLanguage()
   const { sessionToken, tableNumber: sessionTableNumber, clearTableSession } = useSession()
 
-  const { data, isLoading, error, mutate } = useSWR<{ tables: { id: string; table_number: string; is_free?: boolean }[], isSessionActive: boolean }>(
+  const { data, isLoading, error, mutate } = useSWR<{
+    tables: { id: string; table_number: string; is_free?: boolean; active_session_token?: string | null }[],
+    isSessionActive: boolean
+  }>(
     isOpen ? `tables-${branchId}-${sessionToken || ''}` : null,
     async () => {
       const url = sessionToken
@@ -176,8 +179,8 @@ export default function TableSelectionModal({ branchId, isOpen, onClose, onSelec
     }
   }, [isOpen, onClose])
 
-  const handleSelect = useCallback((tableNumber: string) => {
-    onSelect(tableNumber)
+  const handleSelect = useCallback((tableNumber: string, activeSessionToken?: string | null) => {
+    onSelect(tableNumber, activeSessionToken)
     onClose()
   }, [onSelect, onClose])
 
@@ -207,7 +210,7 @@ export default function TableSelectionModal({ branchId, isOpen, onClose, onSelec
                 variants={tableButtonVariants}
                 whileTap={!isSelectable ? undefined : "tap"}
                 whileHover={!isSelectable ? undefined : "hover"}
-                onClick={() => isSelectable && handleSelect(table.table_number)}
+                onClick={() => isSelectable && handleSelect(table.table_number, table.active_session_token)}
                 className={`
                   group relative py-4 px-2 rounded-xl text-center transition-all duration-200
                   focus:outline-none focus:ring-2 focus:ring-offset-2
