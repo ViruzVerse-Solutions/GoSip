@@ -7,6 +7,24 @@ import type {
   MenuItem,
 } from "../types";
 
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://ypmplltikpknlmwftveu.supabase.co';
+
+function resolveLogoUrl(path?: string | null): string | undefined {
+  if (!path) return undefined;
+  if (path.startsWith('http://') || path.startsWith('https://') || path.startsWith('/')) {
+    return path;
+  }
+  return `${SUPABASE_URL}/storage/v1/object/public/logos/${path}`;
+}
+
+function resolveItemImageUrl(path?: string | null): string | undefined {
+  if (!path) return undefined;
+  if (path.startsWith('http://') || path.startsWith('https://') || path.startsWith('/')) {
+    return path;
+  }
+  return `${SUPABASE_URL}/storage/v1/object/public/menu-items/${path}`;
+}
+
 // ── Branch ──────────────────────────────────────────────────────────────────
 export const fetchBranchBySlug = async (slug: string): Promise<Branch | null> => {
   const fetchFn = async () => {
@@ -53,7 +71,7 @@ export const fetchBranchBySlug = async (slug: string): Promise<Branch | null> =>
       id: data.id,
       name: data.name,
       slug: data.slug,
-      logo_url: data.logo_url,
+      logo_url: resolveLogoUrl(data.logo_url),
       is_active: data.is_active,
       features
     } as Branch;
@@ -96,7 +114,10 @@ export const fetchMenuByBranch = async (branchId: string): Promise<{
 
     return {
       categories: (categoriesResult.data || []) as Category[],
-      items: (itemsResult.data || []) as MenuItem[],
+      items: ((itemsResult.data || []) as MenuItem[]).map(item => ({
+        ...item,
+        image_url: resolveItemImageUrl(item.image_url)
+      })),
     };
   };
 
@@ -136,7 +157,10 @@ export const fetchSignatureItems = async (branchId: string, limit = 5): Promise<
     }
 
     // Map the result to strip out the nested join data and match the MenuItem type signature.
-    return (data || []).map(({ item_tags, ...item }) => item) as MenuItem[];
+    return (data || []).map(({ item_tags, ...item }) => ({
+      ...item,
+      image_url: resolveItemImageUrl(item.image_url)
+    })) as MenuItem[];
   };
 
   if (process.env.NODE_ENV === 'development') {

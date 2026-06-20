@@ -6,7 +6,6 @@ import { MdFastfood, MdVerified } from "react-icons/md";
 import { useBranchData } from "@/lib/context/branch-context";
 import { useLanguage } from "@/lib/context/language-context";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
 import { Cormorant_Garamond } from "next/font/google";
 
 // ── Luxury font (matches landing page) ─────────────────────────────────
@@ -122,13 +121,10 @@ export default function HeroBanner({ branchId }: { branchId: string }) {
           className="absolute inset-0"
         >
           {current.image_url ? (
-            <Image
+            <img
               src={current.image_url}
               alt={current.name}
-              fill
-              sizes="(max-width: 768px) 100vw, 800px"
-              priority={activeIndex === 0}
-              className="object-cover"
+              className="absolute inset-0 w-full h-full object-cover"
             />
           ) : (
             <div className="w-full h-full bg-gradient-to-br from-primary-800 to-primary-900" />

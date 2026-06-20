@@ -4,7 +4,6 @@
 
 import { memo, useCallback, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { Pacifico } from 'next/font/google'
 import { MdReceiptLong } from 'react-icons/md'
@@ -31,13 +30,10 @@ const BranchAvatar = memo(({ logoUrl, name }: { logoUrl?: string | null; name: s
   if (logoUrl && !imgError) {
     return (
       <div className="shrink-0 relative h-11 w-11 min-w-[44px] rounded-full overflow-hidden border border-gray-200/80 shadow-sm ring-2 ring-white">
-        <Image
+        <img
           src={logoUrl}
           alt={`${name} logo`}
-          fill
-          sizes="44px"
-          className="object-cover"
-          priority
+          className="absolute inset-0 w-full h-full object-cover"
           onError={() => setImgError(true)}
         />
       </div>
