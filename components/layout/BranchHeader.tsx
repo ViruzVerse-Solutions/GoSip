@@ -4,10 +4,9 @@
 
 import { memo, useCallback, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { Pacifico } from 'next/font/google'
-import { MdReceiptLong } from 'react-icons/md'
+import { LuClipboardList } from 'react-icons/lu'
 
 import { useSession } from '@/lib/context/session-context'
 import LanguageSelector from '@/components/ui/LanguageSelector'
@@ -31,13 +30,10 @@ const BranchAvatar = memo(({ logoUrl, name }: { logoUrl?: string | null; name: s
   if (logoUrl && !imgError) {
     return (
       <div className="shrink-0 relative h-11 w-11 min-w-[44px] rounded-full overflow-hidden border border-gray-200/80 shadow-sm ring-2 ring-white">
-        <Image
+        <img
           src={logoUrl}
           alt={`${name} logo`}
-          fill
-          sizes="44px"
-          className="object-cover"
-          priority
+          className="absolute inset-0 w-full h-full object-cover"
           onError={() => setImgError(true)}
         />
       </div>
@@ -82,7 +78,7 @@ const OrderButton = memo(({ count, slug }: { count: number; slug: string }) => {
         focus-visible:ring-primary-400 focus-visible:ring-offset-2
       "
     >
-      <MdReceiptLong className="w-[22px] h-[22px]" aria-hidden />
+      <LuClipboardList className="w-[20px] h-[20px]" aria-hidden />
 
       <AnimatePresence>
         <motion.span

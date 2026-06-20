@@ -646,7 +646,7 @@ const unsubscribe = subscribeToOrder(order.id, (updated) => {
       : "bg-gradient-to-br from-primary-700 to-primary-900";
 
   return (
-    <div className={`min-h-screen relative overflow-hidden bg-[#fbfbfb] pb-24 ${cormorant.variable}`}>
+    <div className={`min-h-screen relative overflow-hidden bg-[#fbfbfb] pb-12 ${cormorant.variable}`}>
       {/* Ambient Background Blobs */}
       <div className="fixed top-[10%] -left-20 w-96 h-96 bg-primary-200/20 rounded-full blur-[80px] pointer-events-none" />
       <div className="fixed top-[40%] -right-20 w-[30rem] h-[30rem] bg-primary-100/30 rounded-full blur-[100px] pointer-events-none" />
@@ -984,20 +984,6 @@ const unsubscribe = subscribeToOrder(order.id, (updated) => {
       </motion.div>
 
       <QRPanel orderId={order.id} orderNumber={order.daily_order_number} />
-      
-      {/* Floating CTA */}
-      <div className="fixed bottom-0 inset-x-0 z-50 p-6 pointer-events-none">
-        <div className="max-w-lg mx-auto relative">
-          <div className="absolute inset-0 bg-gradient-to-t from-gray-50 via-gray-50 to-transparent -bottom-6 -inset-x-6 -top-12 -z-10" />
-          <button
-            onClick={() => router.push(`/${branch}`)}
-            className="w-full block bg-gradient-to-r from-primary-600 to-primary-700 hover:from-primary-700 hover:to-primary-800 active:scale-[0.98] text-white font-bold py-4 rounded-2xl transition-all shadow-xl shadow-primary-900/20 pointer-events-auto"
-            style={{ fontFamily: "var(--font-cormorant)", fontSize: "20px", letterSpacing: "1px" }}
-          >
-            {t('backToMenu')}
-          </button>
-        </div>
-      </div>
     </div>
   );
 }
