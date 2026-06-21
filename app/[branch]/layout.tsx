@@ -35,7 +35,7 @@ export default async function BranchLayout({
       signatures={signatures}
     >
       {children}
-      {branch.features?.includes('qr_ordering') && (
+      {branch.features?.includes('qr_ordering') && branch.is_open && (
         <>
           <CartBar />
           <CartModal branchSlug={branch.slug} branchId={branch.id} />

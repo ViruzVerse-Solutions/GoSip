@@ -6,6 +6,7 @@ export interface Branch {
   phone?: string
   logo_url?: string
   is_active: boolean
+  is_open: boolean
   features?: string[]
 }
 

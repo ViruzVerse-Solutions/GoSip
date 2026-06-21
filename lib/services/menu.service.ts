@@ -48,6 +48,7 @@ export const fetchBranchBySlug = async (slug: string): Promise<Branch | null> =>
         slug, 
         logo_url, 
         is_active,
+        is_open,
         branch_subscriptions (
           status,
           plans (
@@ -85,6 +86,7 @@ export const fetchBranchBySlug = async (slug: string): Promise<Branch | null> =>
       slug: data.slug,
       logo_url: resolveLogoUrl(data.logo_url),
       is_active: data.is_active,
+      is_open: data.is_open ?? true,
       features
     } as Branch;
   };
