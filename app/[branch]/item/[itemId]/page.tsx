@@ -2,6 +2,7 @@
 
 'use client'
 
+import { useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { useCart } from '@/lib/context/cart-context'
@@ -24,11 +25,22 @@ export default function ItemPage() {
   const item = items.find((i) => i.id === itemId)
   
   const hasMenuFeature = branch.features?.includes('menu') ?? true;
-  const canOrder = branch.features?.includes('qr_ordering') ?? true;
+  const canOrder = (branch.features?.includes('qr_ordering') ?? true) && (branch.is_open ?? true);
+
+  // Redirect to menu if branch is closed
+  useEffect(() => {
+    if (branch && !branch.is_open) {
+      router.replace(`/${branchSlug}`)
+    }
+  }, [branch, branchSlug, router])
 
   // Use the pre-fetched item details directly
   const cartItem = state.items.find((i) => i.itemId === itemId)
   const cartQuantity = cartItem?.quantity ?? 0
+
+  if (branch && !branch.is_open) {
+    return null
+  }
 
   if (!item || !hasMenuFeature) {
     return (

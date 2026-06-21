@@ -85,16 +85,20 @@ export async function POST(req: NextRequest) {
     const today        = getIstDate()
     const itemIds      = items.map((i) => i.itemId)
 
-    // ── 5. Verify branch exists and is active ─────────────────────────────────
+    // ── 5. Verify branch exists and is active & open ─────────────────────────
     const { data: branch, error: branchError } = await supabaseServer
       .from('branches')
-      .select('id')
+      .select('id, is_open')
       .eq('id', branchId)
       .eq('is_active', true)
       .single()
 
     if (branchError || !branch) {
       return NextResponse.json({ error: 'Invalid or inactive branch' }, { status: 400 })
+    }
+
+    if (!branch.is_open) {
+      return NextResponse.json({ error: 'This branch is currently closed and not accepting orders' }, { status: 400 })
     }
 
     // ── 6. Verify table belongs to this branch ────────────────────────────────

@@ -22,8 +22,8 @@ export default function ItemCard({ item, branchSlug, layout = 'row' }: ItemCardP
   const { branch } = useBranchData()
   const isOutOfStock = !item.is_available
   
-  // Disable ordering if the branch subscription lacks the 'qr_ordering' feature
-  const canOrder = branch.features?.includes('qr_ordering') ?? true;
+  // Disable ordering if the branch subscription lacks the 'qr_ordering' feature or the branch is closed
+  const canOrder = (branch.features?.includes('qr_ordering') ?? true) && (branch.is_open ?? true);
 
   const cartItem = state.items.find((i) => i.itemId === item.id)
   const quantity = cartItem?.quantity ?? 0

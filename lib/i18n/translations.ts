@@ -54,6 +54,7 @@ export type TranslationKey =
   | 'orderDelayed' | 'orderDelayedApology'
   | 'menuUnavailable' | 'menuUnavailableDesc' | 'orderingDisabled'
   | 'confirmTableAndOrder' | 'selectDifferentTable'
+  | 'branchClosed' | 'branchClosedDesc' | 'viewActiveOrders'
 type Translations = Record<TranslationKey, string>
 type AllTranslations = Record<LanguageCode, Translations>
 
@@ -154,6 +155,9 @@ export const translations: AllTranslations = {
     orderingDisabled:  'Online ordering is currently unavailable for this branch.',
     confirmTableAndOrder: 'Confirm Table {table} & Order',
     selectDifferentTable: 'Select Different Table',
+    branchClosed:         'Sorry, {outlet} is closed',
+    branchClosedDesc:     'We cannot accept orders at this time. Please check back later or contact staff for assistance.',
+    viewActiveOrders:     'Track Active Orders',
   },
 
   // ── Hindi / हिन्दी ──────────────────────────────────────────────────────────
@@ -252,6 +256,9 @@ export const translations: AllTranslations = {
     orderingDisabled:  'इस शाखा के लिए ऑनलाइन ऑर्डरिंग वर्तमान में अनुपलब्ध है.',
     confirmTableAndOrder: 'टेबल {table} की पुष्टि करें और ऑर्डर करें',
     selectDifferentTable: 'अलग टेबल चुनें',
+    branchClosed:         'क्षमा करें, {outlet} बंद है',
+    branchClosedDesc:     'हम इस समय ऑर्डर स्वीकार नहीं कर सकते। कृपया बाद में पुनः प्रयास करें या कर्मचारियों से संपर्क करें।',
+    viewActiveOrders:     'सक्रिय ऑर्डर ट्रैक करें',
   },
 
   // ── Tamil / தமிழ் ───────────────────────────────────────────────────────────
@@ -350,6 +357,9 @@ export const translations: AllTranslations = {
     orderingDisabled:  'இந்த கிளைக்கு ஆன்லைன் ஆர்டர் செய்வது தற்போது கிடைக்கவில்லை.',
     confirmTableAndOrder: 'மேஜை {table} உறுதிசெய்து ஆர்டர் செய்யவும்',
     selectDifferentTable: 'வேறு மேஜையைத் தேர்ந்தெடுக்கவும்',
+    branchClosed:         'வருந்துகிறோம், {outlet} மூடப்பட்டுள்ளது',
+    branchClosedDesc:     'இந்த நேரத்தில் எங்களால் ஆர்டர்களை ஏற்க முடியாது. பின்னர் மீண்டும் முயற்சிக்கவும் அல்லது ஊழியர்களைத் தொடர்பு கொள்ளவும்.',
+    viewActiveOrders:     'செயலில் உள்ள ஆர்டர்களைக் கண்காணிக்கவும்',
   },
 
   // ── Malayalam / മലയാളം ──────────────────────────────────────────────────────
@@ -448,6 +458,9 @@ export const translations: AllTranslations = {
     orderingDisabled:  'ഈ ബ്രാഞ്ചിനായി ഓൺലൈൻ ഓർഡറിംഗ് നിലവിൽ ലഭ്യമല്ല.',
     confirmTableAndOrder: 'മേശ {table} സ്ഥിരീകരിച്ച് ഓർഡർ ചെയ്യുക',
     selectDifferentTable: 'മറ്റൊരു മേശ തിരഞ്ഞെടുക്കുക',
+    branchClosed:         'ക്ഷമിക്കണം, {outlet} അടച്ചിരിക്കുന്നു',
+    branchClosedDesc:     'ഞങ്ങൾക്ക് ഇപ്പോൾ ഓർഡറുകൾ സ്വീകരിക്കാൻ കഴിയില്ല. ദയവായി പിന്നീട് വീണ്ടും ശ്രമിക്കുക അല്ലെങ്കിൽ ജീവനക്കാരുമായി ബന്ധപ്പെടുക.',
+    viewActiveOrders:     'സജീവ ഓർഡറുകൾ ട്രാക്ക് ചെയ്യുക',
   },
 
   // ── Telugu / తెలుగు ──────────────────────────────────────────────────────────
@@ -546,6 +559,9 @@ export const translations: AllTranslations = {
     orderingDisabled:  'ఈ బ్రాంచ్‌కి ప్రస్తుతం ఆన్‌లైన్ ఆర్డరింగ్ అందుబాటులో లేదు.',
     confirmTableAndOrder: 'టేబుల్ {table} నిర్ధారించి ఆర్డర్ చేయండి',
     selectDifferentTable: 'మరో టేబుల్ ఎంచుకోండి',
+    branchClosed:         'క్షమించండి, {outlet} మూసివేయబడింది',
+    branchClosedDesc:     'మేము ఈ సమయంలో ఆర్డర్‌లను స్వీకరించలేము. దయచేసి తర్వాత మళ్లీ ప్రయత్నించండి లేదా సిబ్బందిని సంప్రదించండి.',
+    viewActiveOrders:     'యాక్టివ్ ఆర్డర్లను ట్రాక్ చేయండి',
   },
 
   // ── Kannada / ಕನ್ನಡ ──────────────────────────────────────────────────────────
@@ -644,6 +660,9 @@ export const translations: AllTranslations = {
     orderingDisabled:  'ಈ ಶಾಖೆಗೆ ಆನ್‌ಲೈನ್ ಆರ್ಡರಿಂಗ್ ಪ್ರಸ್ತುತ ಲಭ್ಯವಿಲ್ಲ.',
     confirmTableAndOrder: 'ಮೇಜು {table} ದೃಢೀಕರಿಸಿ ಮತ್ತು ಆರ್ಡರ್ ಮಾಡಿ',
     selectDifferentTable: 'ಬೇರೆ ಮೇಜು ಆಯ್ಕೆಮಾಡಿ',
+    branchClosed:         'ಕ್ಷಮಿಸಿ, {outlet} ಮುಚ್ಚಲ್ಪಟ್ಟಿದೆ',
+    branchClosedDesc:     'ನಾವು ಈ ಸಮಯದಲ್ಲಿ ಆರ್ಡರ್‌ಗಳನ್ನು ಸ್ವೀಕರಿಸಲು ಸಾಧ್ಯವಿಲ್ಲ. ದಯವಿಟ್ಟು ನಂತರ ಪ್ರಯತ್ನಿಸಿ ಅಥವಾ ಸಿಬ್ಬಂದಿಯನ್ನು ಸಂಪರ್ಕಿಸಿ.',
+    viewActiveOrders:     'ಸಕ್ರಿಯ ಆರ್ಡರ್‌ಗಳನ್ನು ಟ್ರ್ಯಾಕ್ ಮಾಡಿ',
   },
 
   // ── Urdu / اردو ─────────────────────────────────────────────────────────────
@@ -742,5 +761,8 @@ export const translations: AllTranslations = {
     orderingDisabled:  'اس برانچ کے لیے آن لائن آرڈرنگ فی الحال دستیاب نہیں ہے۔',
     confirmTableAndOrder: 'ٹیبل {table} کی تصدیق کریں اور آرڈر کریں',
     selectDifferentTable: 'مختلف ٹیبل منتخب کریں',
+    branchClosed:         'معذرت، {outlet} بند ہے',
+    branchClosedDesc:     'ہم اس وقت آرڈرز قبول نہیں کر سکتے۔ براہ کرم بعد میں دوبارہ کوشش کریں یا عملے سے رابطہ کریں۔',
+    viewActiveOrders:     'سرگرم آرڈرز کو ٹریک کریں',
   },
 }
