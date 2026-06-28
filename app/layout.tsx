@@ -1,12 +1,13 @@
 // app/layout.tsx
 // ── Root Layout ───────────────────────────────────────────────────────────────
 
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { Inter, Pacifico, Cormorant_Garamond, DM_Mono } from 'next/font/google'
 import './globals.css'
 import { CartProvider }     from '@/lib/context/cart-context'
 import { SessionProvider }  from '@/lib/context/session-context'
 import { LanguageProvider } from '@/lib/context/language-context'
+import ZoomBlocker          from '@/components/ui/ZoomBlocker'
 
 const inter = Inter({
   subsets: ['latin'],
@@ -39,6 +40,13 @@ export const metadata: Metadata = {
   description: 'Order fresh, pick up fast',
 }
 
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+}
+
 import { headers } from 'next/headers'
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
@@ -51,6 +59,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="en" className={`${inter.variable} ${pacifico.variable} ${cormorant.variable} ${dmMono.variable}`} data-scroll-behavior="smooth">
       <body className="bg-gray-50 font-sans antialiased" suppressHydrationWarning>
+        <ZoomBlocker />
         <LanguageProvider>
           <SessionProvider>
             <CartProvider>
