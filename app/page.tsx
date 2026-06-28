@@ -13,7 +13,8 @@ export default function HomePage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     const trimmed = slug.trim().toLowerCase()
-    if (!trimmed) return
+    // Strict alphanumeric/dash/underscore restriction prevents path traversal & open redirects
+    if (!trimmed || !/^[a-z0-9_-]+$/.test(trimmed)) return
     router.push(`/${trimmed}`)
   }
 

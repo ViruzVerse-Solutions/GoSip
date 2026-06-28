@@ -1,6 +1,7 @@
 // app/api/orders/[token]/route.ts
 
 import { NextRequest, NextResponse } from 'next/server'
+import { timingSafeEqual as cryptoTimingSafeEqual } from 'crypto'
 import { supabaseServer } from '@/lib/supabase/server'
 import { decryptToken } from '@/lib/security/crypto'
 
@@ -330,15 +331,10 @@ export async function PATCH(
 // Prevents timing attacks where an attacker measures response time to extract
 // the secret one character at a time.
 function timingSafeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) {
-    // Still run the loop to keep constant time even on length mismatch
-    let result = 1
-    for (let i = 0; i < a.length; i++) result |= a.charCodeAt(i) ^ 0
+  const bufA = Buffer.from(a)
+  const bufB = Buffer.from(b)
+  if (bufA.length !== bufB.length) {
     return false
   }
-  let diff = 0
-  for (let i = 0; i < a.length; i++) {
-    diff |= a.charCodeAt(i) ^ b.charCodeAt(i)
-  }
-  return diff === 0
+  return cryptoTimingSafeEqual(bufA, bufB)
 }

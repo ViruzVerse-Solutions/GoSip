@@ -84,6 +84,10 @@ export function resetSessionLimit(sessionToken: string): void {
  * Priority order: Cloudflare → Nginx → Load balancer X-Forwarded-For → fallback.
  */
 export function getClientIp(req: Request): string {
+  // Use secure client IP provided by Next.js platform if available (prevents header spoofing)
+  const nextRequestIp = (req as any).ip
+  if (nextRequestIp) return nextRequestIp
+
   return (
     req.headers.get('cf-connecting-ip') ??
     req.headers.get('x-real-ip') ??

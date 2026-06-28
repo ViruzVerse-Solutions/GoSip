@@ -85,31 +85,33 @@ export async function POST(req: NextRequest) {
     const today        = getIstDate()
     const itemIds      = items.map((i) => i.itemId)
 
-    // ── 5. Verify branch exists and is active & open ─────────────────────────
-    const { data: branch, error: branchError } = await supabaseServer
-      .from('branches')
-      .select('id, is_open')
-      .eq('id', branchId)
-      .eq('is_active', true)
-      .single()
+    // ── 5 + 6. Verify branch + table in ONE parallel round-trip ───────────────
+    const [
+      { data: branch, error: branchError },
+      { data: tableRow, error: tableError },
+    ] = await Promise.all([
+      supabaseServer
+        .from('branches')
+        .select('id, is_open')
+        .eq('id', branchId)
+        .eq('is_active', true)
+        .single(),
+
+      supabaseServer
+        .from('tables')
+        .select('id')
+        .eq('branch_id', branchId)
+        .eq('table_number', tableNumber.trim())
+        .eq('is_active', true)
+        .single(),
+    ])
 
     if (branchError || !branch) {
       return NextResponse.json({ error: 'Invalid or inactive branch' }, { status: 400 })
     }
-
     if (!branch.is_open) {
       return NextResponse.json({ error: 'This branch is currently closed and not accepting orders' }, { status: 400 })
     }
-
-    // ── 6. Verify table belongs to this branch ────────────────────────────────
-    const { data: tableRow, error: tableError } = await supabaseServer
-      .from('tables')
-      .select('id')
-      .eq('branch_id', branchId)
-      .eq('table_number', trimmedTable)
-      .eq('is_active', true)
-      .single()
-
     if (tableError || !tableRow) {
       return NextResponse.json({ error: 'Table not found for this branch' }, { status: 400 })
     }

@@ -1,8 +1,8 @@
 // lib/security/sanitize.ts
 // ── Input validation & sanitization helpers ──────────────────────────────────
 
-/** UUID v4 pattern — used for branchId and itemId validation */
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+/** UUID pattern (version-agnostic) — used for branchId and itemId validation */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 /** Session token: 8–64 alphanumeric chars (what uuidv4 and our fallback produce) */
 const SESSION_TOKEN_RE = /^[a-zA-Z0-9_-]{8,64}$/

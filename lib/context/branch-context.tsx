@@ -29,19 +29,10 @@ export function BranchProvider({
     setRealtimeOverrides({})
   }, [initialBranch.id])
 
-  useEffect(() => {
-    // Quick fetch to ensure we have the latest status on mount, bypassing Next.js cache
-    supabaseBrowser
-      .from('branches')
-      .select('is_open')
-      .eq('id', branch.id)
-      .single()
-      .then(({ data }) => {
-        if (data && data.is_open !== undefined && data.is_open !== initialBranch.is_open) {
-          setRealtimeOverrides(prev => ({ ...prev, is_open: data.is_open }))
-        }
-      })
-  }, [branch.id, initialBranch.is_open])
+  // NOTE: Removed on-mount fetch for is_open — the realtime subscription below
+  // handles all live status updates. The initial value from SSR (initialBranch.is_open)
+  // is fresh enough for the first render; realtime kicks in within ~100ms of mount.
+
 
   useEffect(() => {
     const channel = supabaseBrowser

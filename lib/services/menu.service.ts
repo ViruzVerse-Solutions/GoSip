@@ -1,5 +1,5 @@
+// lib/services/menu.service.ts
 import { unstable_cache } from "next/cache";
-import { supabaseBrowser } from "../supabase/client";
 import { supabaseServer } from "../supabase/server";
 import type {
   Branch,
@@ -7,37 +7,33 @@ import type {
   MenuItem,
 } from "../types";
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://ypmplltikpknlmwftveu.supabase.co';
+// Derived at module init — never hardcoded
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
+if (!SUPABASE_URL && process.env.NODE_ENV === 'production') {
+  throw new Error('[GoSip] NEXT_PUBLIC_SUPABASE_URL is required')
+}
 
-function resolveLogoUrl(path?: string | null): string | undefined {
-  if (!path) return undefined;
-  
-  const storageIndex = path.indexOf('/storage/v1/object/public/');
+// ── URL helpers ───────────────────────────────────────────────────────────────
+function resolveStorageUrl(path?: string | null, bucket?: string): string | undefined {
+  if (!path) return undefined
+
+  const storageIndex = path.indexOf('/storage/v1/object/public/')
   if (storageIndex !== -1) {
-    return `${SUPABASE_URL}${path.substring(storageIndex)}`;
+    return `${SUPABASE_URL}${path.substring(storageIndex)}`
   }
 
   if (path.startsWith('http://') || path.startsWith('https://') || path.startsWith('/')) {
-    return path;
+    return path
   }
-  return `${SUPABASE_URL}/storage/v1/object/public/logos/${path}`;
+
+  if (!SUPABASE_URL || !bucket) return undefined
+  return `${SUPABASE_URL}/storage/v1/object/public/${bucket}/${path}`
 }
 
-function resolveItemImageUrl(path?: string | null): string | undefined {
-  if (!path) return undefined;
+const resolveLogoUrl      = (path?: string | null) => resolveStorageUrl(path, 'logos')
+const resolveItemImageUrl = (path?: string | null) => resolveStorageUrl(path, 'menu-items')
 
-  const storageIndex = path.indexOf('/storage/v1/object/public/');
-  if (storageIndex !== -1) {
-    return `${SUPABASE_URL}${path.substring(storageIndex)}`;
-  }
-
-  if (path.startsWith('http://') || path.startsWith('https://') || path.startsWith('/')) {
-    return path;
-  }
-  return `${SUPABASE_URL}/storage/v1/object/public/menu-items/${path}`;
-}
-
-// ── Branch ──────────────────────────────────────────────────────────────────
+// ── Branch ───────────────────────────────────────────────────────────────────
 export const fetchBranchBySlug = async (slug: string): Promise<Branch | null> => {
   const fetchFn = async () => {
     const { data, error } = await supabaseServer
@@ -59,13 +55,18 @@ export const fetchBranchBySlug = async (slug: string): Promise<Branch | null> =>
       .eq("slug", slug)
       .eq("is_active", true)
       .single();
-      
-    if (error) console.error("fetchBranchBySlug error:", error);
-    
+
+    if (error) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error("fetchBranchBySlug error:", error)
+      }
+      return null
+    }
+
     if (!data) return null;
 
     // Determine features from active subscription
-    let features: string[] = []; // Default to no features if subscription cannot be verified
+    let features: string[] = [];
     const sub = (Array.isArray(data.branch_subscriptions) ? data.branch_subscriptions[0] : data.branch_subscriptions) as any;
     if (sub) {
       const activeStatuses = ['active', 'trial', 'grace'];
@@ -75,7 +76,6 @@ export const fetchBranchBySlug = async (slug: string): Promise<Branch | null> =>
           features = plans.features;
         }
       } else {
-        // Expired or cancelled subscriptions have no active features
         features = [];
       }
     }
@@ -102,29 +102,37 @@ export const fetchBranchBySlug = async (slug: string): Promise<Branch | null> =>
   )();
 };
 
-// ── Full menu in ONE query (branch page) ────────────────────────────────────
+// ── Full menu in ONE query — categories + items via nested select ─────────────
+// Uses supabaseServer (service role key) since this runs inside a Server Component.
 export const fetchMenuByBranch = async (branchId: string): Promise<{
   categories: Category[];
   items: MenuItem[];
 }> => {
   const fetchFn = async () => {
     const [categoriesResult, itemsResult] = await Promise.all([
-      supabaseBrowser
+      supabaseServer
         .from("categories")
         .select("id, branch_id, name, image_url, sort_order")
         .eq("branch_id", branchId)
         .eq("is_visible", true)
         .order("sort_order"),
 
-      supabaseBrowser
+      supabaseServer
         .from("menu_items")
         .select(
-          "id, branch_id, category_id, name, description, price, image_url, is_veg, is_available, is_visible, sort_order",
+          "id, branch_id, category_id, name, description, price, image_url, is_veg, is_available, is_visible, sort_order, created_at, updated_at",
         )
         .eq("branch_id", branchId)
         .eq("is_visible", true)
         .order("sort_order"),
     ]);
+
+    if (categoriesResult.error) {
+      console.error("[fetchMenuByBranch] categories error:", categoriesResult.error)
+    }
+    if (itemsResult.error) {
+      console.error("[fetchMenuByBranch] items error:", itemsResult.error)
+    }
 
     return {
       categories: (categoriesResult.data || []) as Category[],
@@ -146,12 +154,11 @@ export const fetchMenuByBranch = async (branchId: string): Promise<{
   )();
 };
 
-// ── Signature dishes ─────────────────────────────────────────────────────
+// ── Signature dishes ──────────────────────────────────────────────────────────
+// Uses supabaseServer since this runs in a Server Component (branch layout).
 export const fetchSignatureItems = async (branchId: string, limit = 5): Promise<MenuItem[]> => {
   const fetchFn = async () => {
-    // Get menu items that have 'bestseller' or 'chef_special' tags using an inner join.
-    // This collapses two network queries into a single highly optimized database call.
-    const { data, error } = await supabaseBrowser
+    const { data, error } = await supabaseServer
       .from("menu_items")
       .select(`
         id, branch_id, category_id, name, description, price, original_price,
@@ -166,11 +173,12 @@ export const fetchSignatureItems = async (branchId: string, limit = 5): Promise<
       .limit(limit);
 
     if (error) {
-      console.error("fetchSignatureItems error:", error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error("fetchSignatureItems error:", error)
+      }
       return [];
     }
 
-    // Map the result to strip out the nested join data and match the MenuItem type signature.
     return (data || []).map(({ item_tags, ...item }) => ({
       ...item,
       image_url: resolveItemImageUrl(item.image_url)
@@ -188,13 +196,26 @@ export const fetchSignatureItems = async (branchId: string, limit = 5): Promise<
   )();
 };
 
-// ── Real-time order updates ──────────────────────────────────────────────
+// ── Real-time order updates ───────────────────────────────────────────────────
+// Note: This uses the browser client (supabaseBrowser) since it's called from
+// client components and Supabase Realtime requires a persistent WebSocket connection.
+import { supabaseBrowser } from "../supabase/client";
+
 export function subscribeToOrderUpdates(
   orderId: string,
   onUpdate: (updatedOrder: any) => void,
   sessionToken?: string | null,
 ) {
   const uniqueId = Math.random().toString(36).substring(7);
+
+  const handleReconnect = (channel: ReturnType<typeof supabaseBrowser.channel>) => {
+    channel.on('system' as any, { event: 'disconnect' }, () => {
+      if (process.env.NODE_ENV === 'development') {
+        console.warn(`[GoSip] Realtime disconnected for order ${orderId}. Reconnecting...`)
+      }
+      setTimeout(() => channel.subscribe(), 2000)
+    })
+  }
 
   if (sessionToken) {
     const channel = supabaseBrowser
@@ -217,7 +238,9 @@ export function subscribeToOrderUpdates(
           }
         },
       )
-      .subscribe();
+      .subscribe()
+
+    handleReconnect(channel)
 
     return () => {
       supabaseBrowser.removeChannel(channel);
@@ -238,9 +261,10 @@ export function subscribeToOrderUpdates(
         onUpdate(payload.new || payload.old || {});
       },
     )
-    .subscribe();
+    .subscribe()
 
-  // Return an unsubscribe function
+  handleReconnect(channel)
+
   return () => {
     supabaseBrowser.removeChannel(channel);
   };
