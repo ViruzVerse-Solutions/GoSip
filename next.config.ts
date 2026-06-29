@@ -1,5 +1,5 @@
 // next.config.ts
-// Security headers are now applied dynamically in middleware.ts via CSP nonces.
+// Security headers are applied dynamically in middleware.ts via CSP nonces.
 // This file handles only static Next.js configuration.
 
 import type { NextConfig } from 'next'
@@ -10,7 +10,9 @@ const nextConfig: NextConfig = {
 
   // ── Image optimization ───────────────────────────────────────────────────
   images: {
-    unoptimized: true,
+    // ── Image optimization enabled ──────────────────────────────────────────
+    // Next.js will serve WebP, apply responsive srcsets, and lazy-load images.
+    // remotePatterns restrict which external domains can be optimized.
     remotePatterns: [
       {
         protocol: 'https',
@@ -31,7 +33,9 @@ const nextConfig: NextConfig = {
         headers: [
           {
             key: 'Access-Control-Allow-Origin',
-            value: process.env.NEXT_PUBLIC_ADMIN_ORIGIN ?? '*',
+            // Fail closed: if NEXT_PUBLIC_ADMIN_ORIGIN is unset, block all cross-origin
+            // requests rather than opening the API to the entire internet.
+            value: process.env.NEXT_PUBLIC_ADMIN_ORIGIN ?? '',
           },
           {
             key: 'Access-Control-Allow-Methods',

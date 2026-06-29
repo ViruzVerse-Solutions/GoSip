@@ -166,17 +166,6 @@
     background: #94a3b8;
   }
 
-  @keyframes shimmer {
-    from {
-      background-position: -400px 0;
-    }
-
-    to {
-      background-position: 400px 0;
-    }
-  }
-
-  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@500&display=swap');
 
   @keyframes blink-colon {
 

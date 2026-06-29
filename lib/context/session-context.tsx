@@ -8,6 +8,7 @@ import {
   useState,
   useEffect,
   useRef,
+  useCallback,
   ReactNode,
 } from "react";
 
@@ -221,7 +222,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     });
   };
 
-  const updateOrderStatus = (orderId: string, status: string) => {
+  const updateOrderStatus = useCallback((orderId: string, status: string) => {
     setActiveOrders((prev) => {
       const targetOrder = prev.find((o) => o.orderId === orderId);
       if (!targetOrder) return prev;
@@ -234,7 +235,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         return o.orderId === orderId ? { ...o, status } : o;
       });
     });
-  };
+  }, []);
 
   /**
    * Called when the admin marks an order as "collected" (cash paid).
@@ -242,7 +243,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
    * but we CLEAR the table session so the table is instantly freed visually
    * and no longer shows as "Your Table" for this user.
    */
-  const onOrderCollected = (orderId: string) => {
+  const onOrderCollected = useCallback((orderId: string) => {
     let shouldClear = false;
 
     setActiveOrders((prev) => {
@@ -275,7 +276,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         safeStorage.removeItem(`gosip-session-${branchSlug}`);
       }
     }
-  };
+  }, [branchSlug]);
 
   /** Remove one order without clearing the table session. */
   const removeOrder = (orderId: string) => {

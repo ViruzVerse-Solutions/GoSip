@@ -4,6 +4,7 @@
 //   1. Generate a per-request CSP nonce (removes unsafe-inline from script-src)
 //   2. Inject the full Content-Security-Policy header dynamically
 //   3. Pass the nonce down to the root layout via x-nonce header
+//   4. Guard oversized POST bodies at the edge
 
 import { NextRequest, NextResponse } from 'next/server'
 
@@ -14,8 +15,9 @@ function generateNonce(): string {
   return Buffer.from(bytes).toString('base64')
 }
 
+// ── MUST be named `proxy` for Next.js 16 to invoke it ─────────────────────────
 export function proxy(request: NextRequest) {
-  // Completely bypass proxy middleware in development to avoid Turbopack / HMR issues on external IPs
+  // Completely bypass proxy in development to avoid Turbopack / HMR issues on external IPs
   if (process.env.NODE_ENV !== 'production') {
     return NextResponse.next()
   }
@@ -42,24 +44,17 @@ export function proxy(request: NextRequest) {
   const csp = [
     "default-src 'self'",
 
-    // Scripts: nonce + strict-dynamic (no unsafe-inline, no unsafe-eval in prod)
-    // 'unsafe-eval' kept only for dev HMR (Next.js dev mode requires it)
-    process.env.NODE_ENV === 'production'
+    // Scripts: nonce + strict-dynamic (no unsafe-eval in prod)
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' 'unsafe-inline'`,
 
-      ? `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' 'unsafe-inline'`
-      : `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' 'unsafe-eval' 'unsafe-inline'`,
-
-
-    // Styles: unsafe-inline still needed for Framer Motion inline styles
+    // Styles: unsafe-inline needed for Framer Motion inline styles
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
 
     // Fonts: Google Fonts CDN
+    "font-src 'self' https://fonts.gstatic.com",
 
-    "font-src 'self' https://fonts.gstatic.com", 
-
-
-    // Images: same-origin + Supabase storage + data URIs + blob (for uploads/local) + any https/http for external assets
-    "img-src 'self' data: blob: https: http:",
+    // Images: same-origin + Supabase storage + data URIs + blob + any https
+    "img-src 'self' data: blob: https:",
 
     // Fetch / WebSocket: Supabase REST + Realtime
     "connect-src 'self' https://*.supabase.co wss://*.supabase.co",
@@ -71,17 +66,13 @@ export function proxy(request: NextRequest) {
     "frame-ancestors 'none'",
 
     // Upgrade all HTTP sub-resource requests to HTTPS (production only)
-    ...(process.env.NODE_ENV === 'production' ? ['upgrade-insecure-requests'] : []),
+    'upgrade-insecure-requests',
   ].join('; ')
 
   // ── 3. Clone request headers — inject nonce for layout consumption ────────
   const requestHeaders = new Headers(request.headers)
   requestHeaders.set('x-nonce', nonce)
-
-  if (process.env.NODE_ENV === 'production') {
-    requestHeaders.set('Content-Security-Policy', csp)
-  }
-
+  requestHeaders.set('Content-Security-Policy', csp)
 
   // ── 4. Build the response — forward enriched headers ─────────────────────
   const response = NextResponse.next({
@@ -89,9 +80,7 @@ export function proxy(request: NextRequest) {
   })
 
   // ── 5. Set all security response headers ─────────────────────────────────
-  if (process.env.NODE_ENV === 'production') {
-    response.headers.set('Content-Security-Policy', csp)
-  }
+  response.headers.set('Content-Security-Policy', csp)
   response.headers.set('X-Frame-Options', 'DENY')
   response.headers.set('X-Content-Type-Options', 'nosniff')
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')
@@ -99,14 +88,11 @@ export function proxy(request: NextRequest) {
     'Permissions-Policy',
     'camera=(), microphone=(), geolocation=(), payment=()',
   )
-
   // HSTS: only in production (dev runs over HTTP)
-  if (process.env.NODE_ENV === 'production') {
-    response.headers.set(
-      'Strict-Transport-Security',
-      'max-age=63072000; includeSubDomains; preload',
-    )
-  }
+  response.headers.set(
+    'Strict-Transport-Security',
+    'max-age=63072000; includeSubDomains; preload',
+  )
 
   return response
 }

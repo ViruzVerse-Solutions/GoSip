@@ -516,6 +516,7 @@ export default function OrderPage() {
   );
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [isOffline, setIsOffline] = useState(false);
   const [remaining, setRemaining] = useState<number | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const fetchedRef = useRef(false); // prevents double-fetch in Strict Mode
@@ -531,9 +532,24 @@ export default function OrderPage() {
     [token],
   );
 
+  // ── Offline detection ─────────────────────────────────────────────────────
+  useEffect(() => {
+    const handleOnline  = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+    // Set initial state (handles cases where page loads while already offline)
+    setIsOffline(!navigator.onLine);
+    window.addEventListener('online',  handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online',  handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
   // 1. Initial fetch — runs once per token, utilizing Stale-While-Revalidate
   useEffect(() => {
-    let cancelled = false;
+    // AbortController prevents state updates if the component unmounts before fetch resolves
+    const controller = new AbortController();
 
     // Load from cache instantly for optimal UX
     if (orderCache.has(token)) {
@@ -546,7 +562,7 @@ export default function OrderPage() {
     const loadOrder = async () => {
       try {
         const data = await fetchOrder(token);
-        if (cancelled) return;
+        if (controller.signal.aborted) return;
 
         if (data) {
           applyOrder(data as unknown as Order);
@@ -558,8 +574,9 @@ export default function OrderPage() {
           setLoading(false);
         }
       } catch (err) {
+        if (controller.signal.aborted) return;
         console.error("[OrderPage] fetchOrder failed:", err);
-        if (!cancelled && !orderCache.has(token)) {
+        if (!orderCache.has(token)) {
           setNotFound(true);
           setLoading(false);
         }
@@ -568,7 +585,7 @@ export default function OrderPage() {
 
     loadOrder();
     return () => {
-      cancelled = true;
+      controller.abort();
     };
   }, [token, applyOrder]);
 
@@ -701,6 +718,22 @@ useEffect(() => {
 
   return (
     <div className={`min-h-screen relative overflow-hidden bg-[#fbfbfb] pb-12`}>
+      {/* Offline Banner */}
+      <AnimatePresence>
+        {isOffline && (
+          <motion.div
+            initial={{ y: -48, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: -48, opacity: 0 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+            className="fixed top-0 inset-x-0 z-50 flex items-center justify-center gap-2 px-4 py-2.5 text-white text-xs font-semibold tracking-wide"
+            style={{ background: '#dc2626' }}
+          >
+            <span>⚠️</span>
+            <span>No internet connection — showing last known order status</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
       {/* Ambient Background Blobs */}
       <div className="fixed top-[10%] -left-20 w-96 h-96 bg-primary-200/20 rounded-full blur-[80px] pointer-events-none" />
       <div className="fixed top-[40%] -right-20 w-[30rem] h-[30rem] bg-primary-100/30 rounded-full blur-[100px] pointer-events-none" />

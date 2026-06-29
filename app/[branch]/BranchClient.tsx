@@ -4,7 +4,7 @@
 
 import { useState } from 'react'
 import type { Branch, Category, MenuItem } from '@/lib/types'
-import { SessionProvider, useSession } from '@/lib/context/session-context'
+import { useSession } from '@/lib/context/session-context'
 import BranchHeader from '@/components/layout/BranchHeader'
 import SearchBar from '@/components/ui/SearchBar'
 import CategoryChips from '@/components/menu/CategoryChips'
