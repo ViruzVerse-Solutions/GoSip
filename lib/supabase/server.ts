@@ -9,9 +9,13 @@ const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY   ?? ''
 
 // ── Environment guard ─────────────────────────────────────────────────────────
 // Hard-fail in production if the service role key is missing.
-// Silently falling back to the anon key would allow privileged server operations
-// to run with user-level permissions, bypassing RLS policies.
-if (process.env.NODE_ENV === 'production' && (!supabaseUrl || !serviceRoleKey)) {
+// "typeof window === 'undefined'" ensures this check ONLY executes on the server backend.
+// In the browser, secret keys are hidden by Next.js, so this check is skipped to prevent UI crashes.
+if (
+  typeof window === 'undefined' && 
+  process.env.NODE_ENV === 'production' && 
+  (!supabaseUrl || !serviceRoleKey)
+) {
   throw new Error(
     '[GoSip] FATAL: NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set in production. ' +
     'Do NOT fall back to the anon key for server-side operations.'
@@ -40,12 +44,13 @@ const loggedFetch = async (input: RequestInfo | URL, options?: RequestInit) => {
 }
 
 export const supabaseServer = (() => {
+  // If evaluated on the client side, provide a safety proxy instead of throwing a fatal execution error.
   if (!supabaseUrl || !serviceRoleKey) {
     return new Proxy({} as ReturnType<typeof createClient>, {
       get() {
         throw new Error(
           '[GoSip] Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY. ' +
-          'Add these to your .env.local file.'
+          'Ensure this client is only called within Server Components or API Routes.'
         )
       },
     })
