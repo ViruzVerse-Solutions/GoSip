@@ -57,7 +57,7 @@ export default function LoadingScreen({ message = 'Loading...', error = null, on
             
             {/* Ambient Glow */}
             <motion.div
-              className="absolute inset-0 bg-[#1A9E3F] rounded-full blur-2xl opacity-20"
+              className="absolute inset-0 bg-[#A67B5B] rounded-full blur-2xl opacity-20"
               animate={{ scale: [1, 1.2, 1], opacity: [0.1, 0.3, 0.1] }}
               transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
             />
@@ -71,7 +71,7 @@ export default function LoadingScreen({ message = 'Loading...', error = null, on
                 transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
               >
                 <path id="textPath" d="M 50, 50 m -38, 0 a 38,38 0 1,1 76,0 a 38,38 0 1,1 -76,0" fill="none" />
-                <text className="text-[8px] font-bold fill-[#8A7D71] uppercase" style={{ fontFamily: 'var(--font-dm-mono)', letterSpacing: '0.25em' }}>
+                <text className="text-[4.5px] font-medium fill-[#9A8E84] uppercase" style={{ fontFamily: 'var(--font-dm-mono)', letterSpacing: '0.25em' }}>
                   <textPath href="#textPath" startOffset="0%">
                     • GOSIP • SCAN • ORDER • ENJOY • GOSIP • SCAN • ORDER • ENJOY 
                   </textPath>
@@ -79,13 +79,20 @@ export default function LoadingScreen({ message = 'Loading...', error = null, on
               </motion.svg>
             </div>
             
+            {/* Ground / Floating Shadow */}
+            <motion.div 
+              className="absolute -bottom-4 left-1/2 -translate-x-1/2 w-16 h-3 bg-[#A67B5B]/30 blur-[6px] rounded-full z-0 pointer-events-none"
+              animate={{ scale: [1, 1.2, 1], opacity: [0.5, 0.8, 0.5] }}
+              transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+            />
+
             {/* The Original Bold Cup (The exact one the user praised) */}
             <div className="relative w-24 h-24 z-10">
               {/* The Cup Handle */}
-              <div className="absolute top-4 -right-6 w-10 h-14 border-[5px] border-white/90 rounded-r-3xl border-l-0 shadow-sm bg-white/40 backdrop-blur-md" />
+              <div className="absolute top-4 -right-6 w-10 h-14 border-[4px] border-white/90 rounded-r-3xl border-l-0 shadow-[10px_5px_15px_rgba(0,0,0,0.04),inset_0_4px_10px_rgba(255,255,255,0.8)] bg-gradient-to-br from-white/60 to-white/20 backdrop-blur-md" />
               
               {/* The Cup Body */}
-              <div className="absolute inset-0 border-[5px] border-white/90 rounded-b-[2.5rem] rounded-t-xl overflow-hidden bg-white/40 shadow-2xl shadow-[#1A9E3F]/15 backdrop-blur-md z-10">
+              <div className="absolute inset-0 border-[4px] border-white/90 rounded-b-[2.5rem] rounded-t-xl overflow-hidden bg-gradient-to-tr from-white/10 to-white/40 shadow-[0_20px_40px_-10px_rgba(0,0,0,0.1),0_0_20px_rgba(166,123,91,0.1)] backdrop-blur-md z-10">
                  
                  {/* Liquid Fill Level */}
                  <motion.div
@@ -95,7 +102,7 @@ export default function LoadingScreen({ message = 'Loading...', error = null, on
                  >
                     {/* Back Wave */}
                     <motion.div
-                      className="absolute top-0 left-0 w-[200%] h-5 -mt-[18px] text-[#116629] opacity-40"
+                      className="absolute top-0 left-0 w-[200%] h-5 -mt-[18px] text-[#D4A373] opacity-50"
                       animate={{ x: ["0%", "-50%"] }}
                       transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
                     >
@@ -106,7 +113,7 @@ export default function LoadingScreen({ message = 'Loading...', error = null, on
                     
                     {/* Front Wave */}
                     <motion.div
-                      className="absolute top-0 left-0 w-[200%] h-5 -mt-[18px] text-[#1A9E3F]"
+                      className="absolute top-0 left-0 w-[200%] h-5 -mt-[18px] text-[#A67B5B] opacity-80"
                       animate={{ x: ["-50%", "0%"] }}
                       transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
                     >
@@ -116,8 +123,15 @@ export default function LoadingScreen({ message = 'Loading...', error = null, on
                     </motion.div>
 
                     {/* Liquid Body */}
-                    <div className="absolute top-0 left-0 right-0 bottom-0 bg-[#1A9E3F]" />
+                    <div className="absolute top-0 left-0 right-0 bottom-0 bg-gradient-to-t from-[#6B4226] to-[#A67B5B] opacity-90" />
                  </motion.div>
+
+                 {/* 3D Glass Overlays (Rendered OVER the liquid) */}
+                 <div className="absolute inset-0 rounded-b-[2rem] rounded-t-lg shadow-[inset_0_-10px_20px_rgba(107,66,38,0.2),inset_0_15px_15px_rgba(255,255,255,0.9)] z-20 pointer-events-none" />
+                 
+                 {/* Left-side Glass Reflection */}
+                 <div className="absolute top-3 left-3 w-1.5 h-[70%] bg-white/50 blur-[1px] rounded-full z-20 pointer-events-none" />
+                 <div className="absolute top-4 left-6 w-0.5 h-[40%] bg-white/30 blur-[0.5px] rounded-full z-20 pointer-events-none" />
               </div>
               
               {/* Floating Steam Particles */}
@@ -125,7 +139,7 @@ export default function LoadingScreen({ message = 'Loading...', error = null, on
                 {[0, 1, 2].map((i) => (
                   <motion.div
                     key={i}
-                    className="absolute bottom-0 w-2 h-2 rounded-full bg-[#1A9E3F] blur-[1px]"
+                    className="absolute bottom-0 w-2 h-2 rounded-full bg-[#E8E2D9] blur-[1px]"
                     style={{ left: `${30 + i * 20}%` }}
                     animate={{ 
                       y: [0, -40],
@@ -170,8 +184,8 @@ export default function LoadingScreen({ message = 'Loading...', error = null, on
               {[0, 1, 2].map(i => (
                 <motion.div 
                   key={`dot-${i}`}
-                  className="w-1 h-1 rounded-full bg-[#1A9E3F]"
-                  animate={{ y: [0, -4, 0], opacity: [0.2, 1, 0.2] }}
+                  className="w-1.5 h-1.5 rounded-full bg-[#1A9E3F] shadow-[0_0_8px_rgba(26,158,63,0.6)]"
+                  animate={{ y: [0, -4, 0], opacity: [0.3, 1, 0.3], scale: [0.8, 1.2, 0.8] }}
                   transition={{ duration: 1.2, repeat: Infinity, delay: i * 0.2 }}
                 />
               ))}
