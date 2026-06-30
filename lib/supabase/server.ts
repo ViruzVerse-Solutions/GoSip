@@ -44,17 +44,27 @@ const loggedFetch = async (input: RequestInfo | URL, options?: RequestInit) => {
 }
 
 export const supabaseServer = (() => {
-  // If evaluated on the client side, provide a safety proxy instead of throwing a fatal execution error.
   if (!supabaseUrl || !serviceRoleKey) {
+    // Graceful fallback for local development if the service role key is missing
+    if (process.env.NODE_ENV === 'development' && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+      console.warn("⚠️ [GoSip] SUPABASE_SERVICE_ROLE_KEY is missing in .env.local! Falling back to the anon key for server operations.");
+      return createClient(supabaseUrl, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY, {
+        auth: { autoRefreshToken: false, persistSession: false },
+        global: { fetch: loggedFetch },
+      });
+    }
+
+    // If evaluated on the client side or in production without keys, provide a safety proxy
     return new Proxy({} as ReturnType<typeof createClient>, {
       get() {
         throw new Error(
           '[GoSip] Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY. ' +
-          'Ensure this client is only called within Server Components or API Routes.'
+          'Ensure this client is only called within Server Components or API Routes, and keys are set.'
         )
       },
     })
   }
+  
   return createClient(supabaseUrl, serviceRoleKey, {
     auth: {
       autoRefreshToken: false,
