@@ -1,44 +1,89 @@
-import { notFound, redirect } from 'next/navigation'
-import { supabaseServer } from '@/lib/supabase/server'
+'use client'
+
+import { useEffect, useState, use, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { supabaseBrowser } from '@/lib/supabase/client'
+import LoadingScreen from '@/components/ui/LoadingScreen'
 
 interface PageProps {
   params: Promise<{
     code: string
   }>
-  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }
 
-export default async function QrRedirectPage({ params, searchParams }: PageProps) {
-  const { code } = await params
-  const sParams = await searchParams
+function QrRedirectContent({ code }: { code: string }) {
+  const router = useRouter()
+  const searchParams = useSearchParams()
 
-  if (!code) notFound()
+  const [message, setMessage] = useState('Verifying table QR...')
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
-  // Call the SECURITY DEFINER RPC function to resolve the QR code
-  const { data, error } = await supabaseServer.rpc('resolve_qr', {
-    p_code: code,
-  })
+  useEffect(() => {
+    if (!code) return
 
-  if (error || !data || !data.found) {
-    console.error('[QR Redirect] Error resolving code:', code, error, data)
-    notFound()
-  }
+    let isMounted = true
 
-  // Preserve any search query parameters (such as table or UTM parameters) during redirect
-  const queryParams = new URLSearchParams()
-  Object.entries(sParams).forEach(([key, value]) => {
-    if (value !== undefined) {
-      if (Array.isArray(value)) {
-        value.forEach((v) => queryParams.append(key, v))
-      } else {
-        queryParams.append(key, value)
+    async function resolveQrCode() {
+      try {
+        const { data, error } = await supabaseBrowser.rpc('resolve_qr', {
+          p_code: code,
+        })
+
+        if (!isMounted) return
+
+        if (error || !data || !data.found) {
+          console.error('[QR Redirect] Error resolving code:', code, error, data)
+          setErrorMsg('This QR code is invalid or has expired.')
+          return
+        }
+
+        setMessage('Connecting to table menu...')
+
+        // Preserve any search parameters (e.g. UTM parameters, table overrides)
+        const queryParams = new URLSearchParams()
+        searchParams.forEach((val, key) => {
+          queryParams.append(key, val)
+        })
+
+        const queryString = queryParams.toString()
+        const destination = queryString ? `/${data.outlet_slug}?${queryString}` : `/${data.outlet_slug}`
+
+        // Execute client-side redirection
+        router.replace(destination)
+      } catch (err) {
+        console.error('QR Resolution error:', err)
+        if (isMounted) {
+          setErrorMsg('Failed to connect. Please check your internet connection.')
+        }
       }
     }
-  })
 
-  const queryString = queryParams.toString()
-  const destination = queryString ? `/${data.outlet_slug}?${queryString}` : `/${data.outlet_slug}`
+    resolveQrCode()
 
-  // Redirect to the resolved outlet slug (e.g. /my-cafe)
-  redirect(destination)
+    return () => {
+      isMounted = false
+    }
+  }, [code, router, searchParams])
+
+  return (
+    <LoadingScreen
+      message={message}
+      error={errorMsg}
+      onRetry={() => {
+        setErrorMsg(null)
+        setMessage('Retrying table verification...')
+        window.location.reload()
+      }}
+    />
+  )
+}
+
+export default function QrRedirectPage({ params }: PageProps) {
+  const { code } = use(params)
+
+  return (
+    <Suspense fallback={<LoadingScreen message="Initializing..." />}>
+      <QrRedirectContent code={code} />
+    </Suspense>
+  )
 }
