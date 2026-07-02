@@ -17,7 +17,7 @@ const ALGORITHM = 'aes-256-gcm'
 const SECRET    = process.env.ADMIN_API_SECRET ?? 'fallback-dev-secret-gosip-12345678'
 const SALT      = process.env.CRYPTO_SALT      ?? 'dev-salt-gosip-v2'
 
-if (process.env.NODE_ENV === 'production') {
+if (process.env.NODE_ENV === 'production' && process.env.NEXT_PHASE !== 'phase-production-build') {
   if (!process.env.ADMIN_API_SECRET) {
     throw new Error('[GoSip] FATAL: ADMIN_API_SECRET env var must be set in production.')
   }

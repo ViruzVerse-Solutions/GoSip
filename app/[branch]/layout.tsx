@@ -1,12 +1,39 @@
 //app/[branch]/layout.tsx
 
 import { notFound } from 'next/navigation'
+import { Suspense } from 'react'
 import { fetchBranchBySlug, fetchMenuByBranch, fetchSignatureItems } from '@/lib/services/menu.service'
 import { BranchProvider } from '@/lib/context/branch-context'
 import CartBar from '@/components/layout/CartBar'
 import CartModal from '@/components/layout/CartModal'
 
-export default async function BranchLayout({
+export const unstable_instant = {
+  prefetch: 'runtime',
+  samples: [
+    {
+      params: { branch: 'sample-branch', itemId: 'sample-item', token: 'sample-token' },
+      headers: [['x-nonce', 'sample-nonce']],
+    },
+  ],
+}
+
+export default function BranchLayout({
+  children,
+  params,
+}: {
+  children: React.ReactNode
+  params: Promise<{ branch: string }>
+}) {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-gray-50 flex items-center justify-center"><p className="text-gray-400 text-sm">Loading...</p></div>}>
+      <BranchLayoutContent params={params}>
+        {children}
+      </BranchLayoutContent>
+    </Suspense>
+  )
+}
+
+async function BranchLayoutContent({
   children,
   params,
 }: {

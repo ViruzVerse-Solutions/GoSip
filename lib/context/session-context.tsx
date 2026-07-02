@@ -40,8 +40,8 @@ const safeStorage = {
 };
 
 // ── Constants ─────────────────────────────────────────────────────────────────
-/** A table session lives for 4 hours from when the table was first selected. */
-const SESSION_MAX_AGE_MS = 4 * 60 * 60 * 1000  // 4 hours
+/** A table session lives for 2 hours from when the table was first selected. */
+const SESSION_MAX_AGE_MS = 2 * 60 * 60 * 1000  // 2 hours
 
 /** Active orders expire 2 hours after placement. */
 const ORDER_TTL_MS = 2 * 60 * 60 * 1000        // 2 hours (same as cart places)
@@ -89,94 +89,93 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   // ── On Mount: restore + validate ─────────────────────────────────────────
   useEffect(() => {
     if (!branchSlug) return;
-    try {
-      // ── Restore table session ───────────────────────────────────────────
-      const sessionKey = `gosip-session-${branchSlug}`;
-      const savedSession = safeStorage.getItem(sessionKey);
-      if (savedSession) {
-        const { token, table, createdAt } = JSON.parse(savedSession);
 
-        // Time-based expiry: clear session if older than SESSION_MAX_AGE_MS
-        const sessionAge = Date.now() - (createdAt ?? 0);
-        if (sessionAge < SESSION_MAX_AGE_MS) {
-          setSessionToken(token);
-          setTableNumber(table);
+    // Fetch active session from cookie on mount
+    const checkSession = async () => {
+      try {
+        const res = await fetch(`/api/session?branch=${encodeURIComponent(branchSlug)}`)
+        const data = await res.json()
+        if (data.active) {
+          setSessionToken(data.sessionToken)
+          setTableNumber(data.table)
         } else {
-          // Session expired — clear it silently
-          safeStorage.removeItem(sessionKey);
-          setSessionToken(null);
-          setTableNumber(null);
+          setSessionToken(null)
+          setTableNumber(null)
         }
-      } else {
-        setSessionToken(null);
-        setTableNumber(null);
+      } catch (err) {
+        console.error('[Session Context] Session restore check failed:', err)
+        setSessionToken(null)
+        setTableNumber(null)
       }
-
-      // ── Restore active orders ───────────────────────────────────────────
-      const ordersKey = `activeOrders-${branchSlug}`;
-      const storedOrders = safeStorage.getItem(ordersKey);
-      if (storedOrders) {
-        const orders = JSON.parse(storedOrders);
-        if (Array.isArray(orders)) {
-          const now         = Date.now();
-          const validOrders = orders.filter((o: ActiveOrder) => o.expires > now);
-          // Prune expired orders from storage
-          if (validOrders.length !== orders.length) {
-            safeStorage.setItem(ordersKey, JSON.stringify(validOrders));
-          }
-          setActiveOrders(validOrders);
-        } else {
-          setActiveOrders([]);
-        }
-      } else {
-        setActiveOrders([]);
-        // Migration: old schema used 'lastOrder' key
-        const oldStored = safeStorage.getItem("lastOrder");
-        if (oldStored) {
-          const order = JSON.parse(oldStored);
-          if (order.expires > Date.now()) {
-            setActiveOrders([order]);
-            safeStorage.setItem(ordersKey, JSON.stringify([order]));
-          }
-          safeStorage.removeItem("lastOrder");
-        }
-      }
-    } catch (e) {
-      if (process.env.NODE_ENV === "development") {
-        console.warn("[GoSip] Session restore failed — starting fresh:", e);
-      }
-      setSessionToken(null);
-      setTableNumber(null);
-      setActiveOrders([]);
     }
 
-    setIsMounted(true);
-  }, [branchSlug]);
+    checkSession().then(() => {
+      try {
+        // ── Restore active orders ───────────────────────────────────────────
+        const ordersKey = `activeOrders-${branchSlug}`
+        const storedOrders = safeStorage.getItem(ordersKey)
+        if (storedOrders) {
+          const orders = JSON.parse(storedOrders)
+          if (Array.isArray(orders)) {
+            const now         = Date.now()
+            const validOrders = orders.filter((o: ActiveOrder) => o.expires > now)
+            // Prune expired orders from storage
+            if (validOrders.length !== orders.length) {
+              safeStorage.setItem(ordersKey, JSON.stringify(validOrders))
+            }
+            setActiveOrders(validOrders)
+          } else {
+            setActiveOrders([])
+          }
+        } else {
+          setActiveOrders([])
+          // Migration: old schema used 'lastOrder' key
+          const oldStored = safeStorage.getItem("lastOrder")
+          if (oldStored) {
+            const order = JSON.parse(oldStored)
+            if (order.expires > Date.now()) {
+              setActiveOrders([order])
+              safeStorage.setItem(ordersKey, JSON.stringify([order]))
+            }
+            safeStorage.removeItem("lastOrder")
+          }
+        }
+      } catch (e) {
+        if (process.env.NODE_ENV === "development") {
+          console.warn("[GoSip] Order restore failed:", e)
+        }
+        setActiveOrders([])
+      }
+      setIsMounted(true)
+    })
+  }, [branchSlug])
 
   // Removed aggressive auto-clear useEffect that was destroying the session on first table selection
 
   // ── Persist orders ────────────────────────────────────────────────────────
   useEffect(() => {
     if (isMounted && branchSlug) {
-      safeStorage.setItem(`activeOrders-${branchSlug}`, JSON.stringify(activeOrders));
+      safeStorage.setItem(`activeOrders-${branchSlug}`, JSON.stringify(activeOrders))
     }
-  }, [activeOrders, isMounted, branchSlug]);
+  }, [activeOrders, isMounted, branchSlug])
 
   // ── Actions ───────────────────────────────────────────────────────────────
 
-  /** Select a table — generates a fresh session token with a creation timestamp. */
+  /** Select a table — registers selection with backend (which sets the secure cookie). */
   const selectTable = (table: string, existingToken?: string) => {
-    const token     = existingToken || generateId();
-    const createdAt = Date.now();
-    setSessionToken(token);
-    setTableNumber(table);
+    const token = existingToken || generateId()
+    setSessionToken(token)
+    setTableNumber(table)
     if (branchSlug) {
-      safeStorage.setItem(
-        `gosip-session-${branchSlug}`,
-        JSON.stringify({ token, table, createdAt }),
-      );
+      fetch('/api/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ table, branchSlug }),
+      }).catch((err) => {
+        console.error('[Session Context] Failed to register session on server:', err)
+      })
     }
-    return token;
+    return token
   };
 
   /**
@@ -185,21 +184,33 @@ export function SessionProvider({ children }: { children: ReactNode }) {
    * Called after payment is collected.
    */
   const clearTableSession = () => {
-    setSessionToken(null);
-    setTableNumber(null);
+    setSessionToken(null)
+    setTableNumber(null)
     if (branchSlug) {
-      safeStorage.removeItem(`gosip-session-${branchSlug}`);
+      fetch('/api/session', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ branchSlug }),
+      }).catch((err) => {
+        console.error('[Session Context] Failed to clear session on server:', err)
+      })
     }
   };
 
   /** Full session wipe — used on logout / hard reset. */
   const clearSession = () => {
-    setSessionToken(null);
-    setTableNumber(null);
-    setActiveOrders([]);
+    setSessionToken(null)
+    setTableNumber(null)
+    setActiveOrders([])
     if (branchSlug) {
-      safeStorage.removeItem(`gosip-session-${branchSlug}`);
-      safeStorage.removeItem(`activeOrders-${branchSlug}`);
+      safeStorage.removeItem(`activeOrders-${branchSlug}`)
+      fetch('/api/session', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ branchSlug }),
+      }).catch((err) => {
+        console.error('[Session Context] Failed to clear session on server:', err)
+      })
     }
   };
 

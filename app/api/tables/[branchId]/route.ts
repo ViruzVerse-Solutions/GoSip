@@ -1,10 +1,9 @@
 // app/api/tables/[branchId]/route.ts
 
 import { NextRequest, NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
 import { supabaseServer } from '@/lib/supabase/server'
 import { isValidUUID } from '@/lib/security/sanitize'
-
-export const dynamic = 'force-dynamic'
 
 export async function GET(
   req: NextRequest,
@@ -21,7 +20,7 @@ export async function GET(
     // Verify the branch is active before serving table data
     const { data: branch, error: branchError } = await supabaseServer
       .from('branches')
-      .select('id')
+      .select('id, slug')
       .eq('id', branchId)
       .eq('is_active', true)
       .single()
@@ -30,7 +29,8 @@ export async function GET(
       return NextResponse.json({ error: 'Branch not found' }, { status: 404 })
     }
 
-    const sessionToken = req.nextUrl.searchParams.get('sessionToken')
+    const cookieStore = await cookies()
+    const sessionToken = cookieStore.get(`gosip-session-${branch.slug}`)?.value || null
     const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
 
     // Fetch tables and active orders in parallel to determine table occupancy
@@ -47,7 +47,7 @@ export async function GET(
 
       supabaseServer
         .from('orders')
-        .select('id, table_number, session_token, total')
+        .select('id, table_number, session_token, total, status')
         .eq('branch_id', branchId)
         .neq('status', 'collected')
         .neq('status', 'cancelled')
@@ -75,7 +75,7 @@ export async function GET(
 
       for (const [tableNum, orders] of ordersByTable.entries()) {
         const isOccupiedByOthers = orders.some(
-          (order) => !order.session_token || order.session_token !== sessionToken
+          (order) => order.status === 'pending' && (!order.session_token || order.session_token !== sessionToken)
         )
         if (isOccupiedByOthers) {
           occupiedTables.add(tableNum)

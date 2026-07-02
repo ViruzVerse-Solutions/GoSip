@@ -1,4 +1,4 @@
-import { subscribeToOrderUpdates } from './menu.service'
+import { supabaseBrowser } from '../supabase/client'
 
 export interface PlaceOrderResult {
   token: string
@@ -38,5 +38,70 @@ export async function fetchOrder(token: string) {
   return res.json()
 }
 
-// Re-export so UI pages only import from order.service
-export { subscribeToOrderUpdates as subscribeToOrder }
+export function subscribeToOrder(
+  orderId: string,
+  onUpdate: (updatedOrder: any) => void,
+  sessionToken?: string | null,
+) {
+  const uniqueId = Math.random().toString(36).substring(7);
+
+  const handleReconnect = (channel: ReturnType<typeof supabaseBrowser.channel>) => {
+    channel.on('system' as any, { event: 'disconnect' }, () => {
+      if (process.env.NODE_ENV === 'development') {
+        console.warn(`[GoSip] Realtime disconnected for order ${orderId}. Reconnecting...`)
+      }
+    })
+  }
+
+  if (sessionToken) {
+    const channel = supabaseBrowser
+      .channel(`order-session-${sessionToken}-${uniqueId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "orders",
+        },
+        (payload) => {
+          const newRec = payload.new as any;
+          const oldRec = payload.old as any;
+          if (
+            (newRec && newRec.session_token === sessionToken) ||
+            (oldRec && oldRec.session_token === sessionToken)
+          ) {
+            onUpdate(newRec || oldRec || {});
+          }
+        },
+      )
+      .subscribe()
+
+    handleReconnect(channel)
+
+    return () => {
+      supabaseBrowser.removeChannel(channel);
+    };
+  }
+
+  const channel = supabaseBrowser
+    .channel(`order-${orderId}-${uniqueId}`)
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "orders",
+        filter: `id=eq.${orderId}`,
+      },
+      (payload) => {
+        onUpdate(payload.new || payload.old || {});
+      },
+    )
+    .subscribe()
+
+  handleReconnect(channel)
+
+  return () => {
+    supabaseBrowser.removeChannel(channel);
+  };
+}

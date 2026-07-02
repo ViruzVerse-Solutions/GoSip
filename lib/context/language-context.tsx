@@ -42,7 +42,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  // Apply document direction for RTL languages (Urdu)
+  // Apply document direction for RTL languages if any
   useEffect(() => {
     const language = LANGUAGES.find((l) => l.code === lang)
     if (typeof document !== 'undefined') {

@@ -47,6 +47,8 @@ export const viewport: Viewport = {
   userScalable: false,
 }
 
+export const unstable_instant = false
+
 import { headers } from 'next/headers'
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
