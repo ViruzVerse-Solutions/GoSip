@@ -52,6 +52,7 @@ type Order = {
   status: string;
   table_number: number;
   daily_order_number: number;
+  total: number;
   order_items: OrderItem[];
   session_token?: string;
 };
@@ -693,8 +694,9 @@ useEffect(() => {
     !isCancelled &&
     !isCollected &&
     order?.status === "delivered";
-  const total =
+  const itemsSum =
     order?.order_items.reduce((sum, i) => sum + i.price * i.quantity, 0) ?? 0;
+  const grandTotal = order?.total ?? itemsSum;
   const { time, ampm, date } = order
     ? formatOrderTime(order.created_at)
     : { time: "", ampm: "", date: "" };
@@ -1015,37 +1017,51 @@ useEffect(() => {
           </div>
 
           {/* Total */}
-          <div
-            className="flex items-center justify-between mx-4 mt-4 mb-5 px-6 py-5 rounded-[1.5rem] relative overflow-hidden"
-            style={{ 
-              background: "linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%)",
-              border: "1px solid #f0f0f0",
-              boxShadow: "inset 0 2px 10px rgba(0,0,0,0.01)" 
-            }}
-          >
-            <div className="flex items-center gap-2.5 text-sm font-bold tracking-wide uppercase text-gray-400" style={{ fontSize: 11 }}>
-              <MdPayment
-                style={{
-                  fontSize: 18,
-                  color: isCancelled ? "#e53935" : "var(--color-primary-500)",
-                }}
-              />
-              {t('total')}
-            </div>
-            <span
-              style={{
-                fontFamily: "var(--font-cormorant)",
-                fontSize: 36,
-                fontWeight: 700,
-                color: isCancelled ? "#e53935" : "var(--color-primary-800)",
-                letterSpacing: "-1px",
-                lineHeight: 1,
-                textDecoration: isCancelled ? "line-through" : "none",
-                opacity: isCancelled ? 0.6 : 1,
+          <div className="mx-4 mt-4 mb-5">
+            {grandTotal - itemsSum > 0.01 && (
+              <div className="px-6 py-4 mb-2 rounded-[1.5rem] bg-gray-50/50 border border-gray-100 flex flex-col gap-2">
+                <div className="flex items-center justify-between text-sm text-gray-500 font-medium">
+                  <span>Subtotal</span>
+                  <span>₹{itemsSum.toFixed(2)}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm text-gray-500 font-medium">
+                  <span>Taxes</span>
+                  <span>₹{(grandTotal - itemsSum).toFixed(2)}</span>
+                </div>
+              </div>
+            )}
+            <div
+              className="flex items-center justify-between px-6 py-5 rounded-[1.5rem] relative overflow-hidden"
+              style={{ 
+                background: "linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%)",
+                border: "1px solid #f0f0f0",
+                boxShadow: "inset 0 2px 10px rgba(0,0,0,0.01)" 
               }}
             >
-              ₹{total}
-            </span>
+              <div className="flex items-center gap-2.5 text-sm font-bold tracking-wide uppercase text-gray-400" style={{ fontSize: 11 }}>
+                <MdPayment
+                  style={{
+                    fontSize: 18,
+                    color: isCancelled ? "#e53935" : "var(--color-primary-500)",
+                  }}
+                />
+                {grandTotal - itemsSum > 0.01 ? "Grand Total" : t('total')}
+              </div>
+              <span
+                style={{
+                  fontFamily: "var(--font-cormorant)",
+                  fontSize: 36,
+                  fontWeight: 700,
+                  color: isCancelled ? "#e53935" : "var(--color-primary-800)",
+                  letterSpacing: "-1px",
+                  lineHeight: 1,
+                  textDecoration: isCancelled ? "line-through" : "none",
+                  opacity: isCancelled ? 0.6 : 1,
+                }}
+              >
+                ₹{grandTotal.toFixed(2)}
+              </span>
+            </div>
           </div>
 
           {/* CTA */}
@@ -1075,7 +1091,7 @@ useEffect(() => {
         </div>
       </motion.div>
 
-      <QRPanel orderId={order.id} orderNumber={order.daily_order_number} disabled={order.status === 'pending'} totalAmount={total} sessionToken={order.session_token} />
+      <QRPanel orderId={order.id} orderNumber={order.daily_order_number} disabled={order.status === 'pending'} totalAmount={grandTotal} sessionToken={order.session_token} />
     </div>
   );
 }

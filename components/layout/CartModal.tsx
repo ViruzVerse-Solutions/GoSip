@@ -16,6 +16,7 @@ import {
 } from "react-icons/md";
 import { useSession } from "@/lib/context/session-context";
 import { useLanguage } from "@/lib/context/language-context";
+import { useBranchData } from "@/lib/context/branch-context";
 
 export default function CartModal({
   branchSlug,
@@ -24,6 +25,7 @@ export default function CartModal({
   branchSlug?: string;
   branchId?: string;
 }) {
+  const { branch, items } = useBranchData();
   const { state, dispatch, totalItems, totalPrice, isCartOpen, closeCart } =
     useCart();
   const { tableNumber, selectTable, sessionToken, addOrder, activeOrders } = useSession();
@@ -96,6 +98,35 @@ export default function CartModal({
     dispatch({ type: "CLEAR_CART" });
     closeCart();
   };
+
+  let calculatedSubtotal = 0;
+  let calculatedCgst = 0;
+  let calculatedSgst = 0;
+
+  const isInclusive = branch?.is_gst_inclusive ?? false;
+  const branchDefaultGst = branch?.default_gst_rate ?? 5.0;
+
+  state.items.forEach(cartItem => {
+    const menuItem = items.find(i => i.id === cartItem.itemId);
+    const itemGst = menuItem?.gst_rate ?? branchDefaultGst;
+    const basePrice = cartItem.price * cartItem.quantity;
+
+    if (isInclusive) {
+      const base = basePrice / (1 + itemGst / 100);
+      const tax = basePrice - base;
+      calculatedSubtotal += base;
+      calculatedCgst += tax / 2;
+      calculatedSgst += tax / 2;
+    } else {
+      calculatedSubtotal += basePrice;
+      const tax = basePrice * (itemGst / 100);
+      calculatedCgst += tax / 2;
+      calculatedSgst += tax / 2;
+    }
+  });
+
+  const grandTotal = calculatedSubtotal + calculatedCgst + calculatedSgst;
+  const totalTax = calculatedCgst + calculatedSgst;
 
   return (
     <AnimatePresence>
@@ -220,14 +251,27 @@ export default function CartModal({
 
             {totalItems > 0 && (
               <div className="border-t border-gray-100 px-5 py-4">
-                {totalPrice !== undefined && (
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-gray-700 font-medium">{t('total')}</span>
-                    <span className="text-xl font-bold text-primary-600">
-                      ₹{totalPrice}
+                <div className="mb-4 space-y-1.5">
+                  {totalTax > 0 && !isInclusive && (
+                    <>
+                      <div className="flex items-center justify-between text-sm text-gray-500">
+                        <span>Subtotal</span>
+                        <span className="font-medium">₹{calculatedSubtotal.toFixed(2)}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-sm text-gray-500">
+                        <span>Taxes</span>
+                        <span className="font-medium">₹{totalTax.toFixed(2)}</span>
+                      </div>
+                      <div className="my-2 border-t border-gray-100 border-dashed" />
+                    </>
+                  )}
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-700 font-bold">Grand Total</span>
+                    <span className="text-xl font-black text-primary-600">
+                      ₹{grandTotal.toFixed(2)}
                     </span>
                   </div>
-                )}
+                </div>
 
                 {error && (
                   <div className="mb-3 p-3 bg-red-50 text-red-600 text-sm font-medium rounded-xl border border-red-100 text-center animate-pulse">
@@ -244,7 +288,7 @@ export default function CartModal({
                     >
                       {loading
                         ? t('placingOrder')
-                        : `${t('confirmTableAndOrder').replace('{table}', tableNumber)} · ₹${totalPrice}`}
+                        : `${t('confirmTableAndOrder').replace('{table}', tableNumber)} · ₹${grandTotal.toFixed(2)}`}
                     </button>
                     <button
                       type="button"
@@ -263,7 +307,7 @@ export default function CartModal({
                   >
                     {loading
                       ? t('placingOrder')
-                      : `${t('proceedToOrder')} · ₹${totalPrice}`}
+                      : `${t('proceedToOrder')} · ₹${grandTotal.toFixed(2)}`}
                   </button>
                 )}
               </div>

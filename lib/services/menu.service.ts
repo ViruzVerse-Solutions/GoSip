@@ -45,6 +45,8 @@ export const fetchBranchBySlug = async (slug: string): Promise<Branch | null> =>
         logo_url, 
         is_active,
         is_open,
+        default_gst_rate,
+        is_gst_inclusive,
         branch_subscriptions (
           status,
           plans (
@@ -87,6 +89,8 @@ export const fetchBranchBySlug = async (slug: string): Promise<Branch | null> =>
       logo_url: resolveLogoUrl(data.logo_url),
       is_active: data.is_active,
       is_open: data.is_open ?? true,
+      default_gst_rate: data.default_gst_rate,
+      is_gst_inclusive: data.is_gst_inclusive,
       features
     } as Branch;
   };
@@ -120,7 +124,7 @@ export const fetchMenuByBranch = async (branchId: string): Promise<{
       supabaseServer
         .from("menu_items")
         .select(
-          "id, branch_id, category_id, name, description, price, image_url, is_veg, is_available, is_visible, sort_order, created_at, updated_at",
+          "id, branch_id, category_id, name, description, price, image_url, is_veg, is_available, is_visible, sort_order, gst_rate, created_at, updated_at",
         )
         .eq("branch_id", branchId)
         .eq("is_visible", true)
@@ -162,7 +166,7 @@ export const fetchSignatureItems = async (branchId: string, limit = 5): Promise<
       .from("menu_items")
       .select(`
         id, branch_id, category_id, name, description, price, original_price,
-        image_url, is_veg, is_available, is_visible, sort_order, created_at, updated_at,
+        image_url, is_veg, is_available, is_visible, sort_order, gst_rate, created_at, updated_at,
         item_tags!inner(tag)
       `)
       .eq("branch_id", branchId)
@@ -213,7 +217,6 @@ export function subscribeToOrderUpdates(
       if (process.env.NODE_ENV === 'development') {
         console.warn(`[GoSip] Realtime disconnected for order ${orderId}. Reconnecting...`)
       }
-      setTimeout(() => channel.subscribe(), 2000)
     })
   }
 
