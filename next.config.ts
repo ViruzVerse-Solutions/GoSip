@@ -5,6 +5,12 @@
 import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
+  // Enable cache components and instant navigation
+  cacheComponents: true,
+  experimental: {
+    instantNavigationDevToolsToggle: true,
+  },
+
   // Allow external IP testing
   allowedDevOrigins: ['10.177.142.137', 'localhost'],
 

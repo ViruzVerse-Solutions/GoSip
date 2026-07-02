@@ -1,10 +1,12 @@
 // app/api/orders/route.ts
 
 import { NextRequest, NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
 import { randomBytes } from 'crypto'
 import { supabaseServer } from '@/lib/supabase/server'
 import { isIpRateLimited, isSessionRateLimited, getClientIp } from '@/lib/security/rateLimit'
 import { validateOrderBody } from '@/lib/security/sanitize'
+import { validateGeofence } from '@/lib/security/geofence'
 import { encryptToken } from '@/lib/security/crypto'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -64,11 +66,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: validation.error }, { status: 400 })
     }
 
-    const { sessionToken, tableNumber, branchId, items } = body as {
+    const { sessionToken, tableNumber, branchId, items, latitude, longitude, accuracy, isMocked } = body as {
       sessionToken: string
       tableNumber:  string
       branchId:     string
       items:        { itemId: string; quantity: number }[]
+      latitude?:     number
+      longitude?:    number
+      accuracy?:     number
+      isMocked?:     boolean
     }
 
     // ── 4. Session-based rate limiting (Layer 2 — per user, not per table) ────
@@ -92,7 +98,7 @@ export async function POST(req: NextRequest) {
     ] = await Promise.all([
       supabaseServer
         .from('branches')
-        .select('id, is_open, default_gst_rate, is_gst_inclusive')
+        .select('*')
         .eq('id', branchId)
         .eq('is_active', true)
         .single(),
@@ -109,11 +115,43 @@ export async function POST(req: NextRequest) {
     if (branchError || !branch) {
       return NextResponse.json({ error: 'Invalid or inactive branch' }, { status: 400 })
     }
+    if (tableError || !tableRow) {
+      return NextResponse.json({ error: 'Invalid or inactive table selection' }, { status: 400 })
+    }
+
+    // ── 5.1. Verify session token matches HttpOnly cookie ──────────────────────
+    const cookieStore = await cookies()
+    const cookieToken = cookieStore.get(`gosip-session-${branch.slug}`)?.value
+
+    if (!cookieToken || cookieToken !== sessionToken) {
+      return NextResponse.json(
+        { error: 'Session expired or invalid. Please scan the table QR code again.' },
+        { status: 401 }
+      )
+    }
     if (!branch.is_open) {
       return NextResponse.json({ error: 'This branch is currently closed and not accepting orders' }, { status: 400 })
     }
-    if (tableError || !tableRow) {
-      return NextResponse.json({ error: 'Table not found for this branch' }, { status: 400 })
+
+    // ── 5.2. Verify GPS location & check for mock providers ───────────────────
+    if (typeof latitude === 'number' && typeof longitude === 'number') {
+      const geoCheck = validateGeofence(
+        branch.slug,
+        latitude,
+        longitude,
+        accuracy || 0,
+        !!isMocked,
+        (branch as any).latitude,
+        (branch as any).longitude
+      )
+      if (!geoCheck.valid) {
+        return NextResponse.json({ error: geoCheck.error }, { status: 403 })
+      }
+    } else {
+      // Mandate geolocation check in production environment to prevent ordering from outside
+      if (process.env.NODE_ENV === 'production') {
+        return NextResponse.json({ error: 'Location verification is required to place orders.' }, { status: 403 })
+      }
     }
 
     const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
@@ -121,10 +159,10 @@ export async function POST(req: NextRequest) {
     // ── 6.1. Verify table is not occupied by another active order ─────────────
     const { data: existingActiveOrders, error: checkOccupiedError } = await supabaseServer
       .from('orders')
-        .select('id, session_token, total')
+        .select('id, session_token, total, status')
       .eq('branch_id', branchId)
       .eq('table_number', trimmedTable)
-      .in('status', ['pending'])
+      .in('status', ['pending', 'delivered'])
       .gte('created_at', twoHoursAgo)
 
     if (checkOccupiedError) {
@@ -133,12 +171,12 @@ export async function POST(req: NextRequest) {
     }
 
     if (existingActiveOrders && existingActiveOrders.length > 0) {
-      // Check if any truly active order belongs to a different session (or has no session token)
-      const hasOtherSessionOrder = existingActiveOrders.some(
-        (order) => !order.session_token || order.session_token !== sessionToken
+      // Block only if there is a pending (preparing) order from another session
+      const hasOtherSessionPendingOrder = existingActiveOrders.some(
+        (order) => order.status === 'pending' && (!order.session_token || order.session_token !== sessionToken)
       )
-      if (hasOtherSessionOrder) {
-        return NextResponse.json({ error: 'This table is occupied. Please select another table.' }, { status: 409 })
+      if (hasOtherSessionPendingOrder) {
+        return NextResponse.json({ error: 'This table is occupied. Please wait for the previous order to be served.' }, { status: 409 })
       }
     }
 
