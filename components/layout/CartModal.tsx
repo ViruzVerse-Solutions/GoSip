@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { useCart } from "@/lib/context/cart-context";
 import { placeOrder } from "@/lib/services/order.service";
+import { getSecureLocation } from "@/lib/security/geolocation";
 import { MenuItem } from "@/lib/types";
 import QuantityControl from "../ui/QuantityControl";
 import TableSelectionModal from "../order/TableSelectionModal";
@@ -49,11 +50,19 @@ export default function CartModal({
       } else if (!tableNumber || !currentSessionToken || table !== tableNumber) {
         currentSessionToken = selectTable(table);
       }
+
+      setError("Verifying location...");
+      const location = await getSecureLocation().catch((err) => {
+        throw new Error(err.message || 'Failed to verify location');
+      });
+      setError(null);
+
       const result = await placeOrder(
         currentSessionToken,
         table,
         branchId,
         state.items,
+        location,
       );
 
       addOrder({

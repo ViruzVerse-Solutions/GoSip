@@ -6,6 +6,7 @@ import { randomBytes } from 'crypto'
 import { supabaseServer } from '@/lib/supabase/server'
 import { isIpRateLimited, isSessionRateLimited, getClientIp } from '@/lib/security/rateLimit'
 import { validateOrderBody } from '@/lib/security/sanitize'
+import { validateGeofence } from '@/lib/security/geofence'
 import { encryptToken } from '@/lib/security/crypto'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -65,11 +66,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: validation.error }, { status: 400 })
     }
 
-    const { sessionToken, tableNumber, branchId, items } = body as {
+    const { sessionToken, tableNumber, branchId, items, latitude, longitude, accuracy, isMocked } = body as {
       sessionToken: string
       tableNumber:  string
       branchId:     string
       items:        { itemId: string; quantity: number }[]
+      latitude?:     number
+      longitude?:    number
+      accuracy?:     number
+      isMocked?:     boolean
     }
 
     // ── 4. Session-based rate limiting (Layer 2 — per user, not per table) ────
@@ -126,6 +131,19 @@ export async function POST(req: NextRequest) {
     }
     if (!branch.is_open) {
       return NextResponse.json({ error: 'This branch is currently closed and not accepting orders' }, { status: 400 })
+    }
+
+    // ── 5.2. Verify GPS location & check for mock providers ───────────────────
+    if (typeof latitude === 'number' && typeof longitude === 'number') {
+      const geoCheck = validateGeofence(branch.slug, latitude, longitude, accuracy || 0, !!isMocked)
+      if (!geoCheck.valid) {
+        return NextResponse.json({ error: geoCheck.error }, { status: 403 })
+      }
+    } else {
+      // Mandate geolocation check in production environment to prevent ordering from outside
+      if (process.env.NODE_ENV === 'production') {
+        return NextResponse.json({ error: 'Location verification is required to place orders.' }, { status: 403 })
+      }
     }
 
     const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
