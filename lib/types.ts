@@ -8,6 +8,8 @@ export interface Branch {
   is_active: boolean
   is_open: boolean
   features?: string[]
+  default_gst_rate?: number
+  is_gst_inclusive?: boolean
 }
 
 export interface Category {
@@ -33,6 +35,7 @@ export interface MenuItem {
   is_available: boolean
   is_visible: boolean
   sort_order: number
+  gst_rate?: number
   created_at: string
   updated_at: string
 }

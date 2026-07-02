@@ -92,7 +92,7 @@ export async function POST(req: NextRequest) {
     ] = await Promise.all([
       supabaseServer
         .from('branches')
-        .select('id, is_open')
+        .select('id, is_open, default_gst_rate, is_gst_inclusive')
         .eq('id', branchId)
         .eq('is_active', true)
         .single(),
@@ -151,7 +151,7 @@ export async function POST(req: NextRequest) {
       // Items scoped to branch — prevents cross-branch injection
       supabaseServer
         .from('menu_items')
-        .select('id, price, is_available')
+        .select('id, price, is_available, gst_rate')
         .in('id', itemIds)
         .eq('branch_id', branchId),
 
@@ -167,10 +167,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to verify items' }, { status: 500 })
     }
 
-    // ── 8. Validate every item: exists in this branch, available ─────────────
+    // ── 8. Validate every item & Calculate GST ───────────────────────────────
     const menuItemsMap = new Map(menuItems.map((mi) => [mi.id, mi]))
-    let total = 0
+    let calculatedSubtotal = 0
+    let calculatedCgst = 0
+    let calculatedSgst = 0
     const orderItemsToInsert: { item_id: string; quantity: number; price: number }[] = []
+
+    const isInclusive = branch.is_gst_inclusive ?? false
+    const branchDefaultGst = branch.default_gst_rate ?? 5.0
 
     for (const { itemId, quantity } of items) {
       const menuItem = menuItemsMap.get(itemId)
@@ -180,9 +185,27 @@ export async function POST(req: NextRequest) {
       if (!menuItem.is_available) {
         return NextResponse.json({ error: 'An item in your cart is no longer available' }, { status: 400 })
       }
-      total += menuItem.price * quantity          // server-authoritative price
+      
+      const itemGst = menuItem.gst_rate ?? branchDefaultGst
+      const basePrice = menuItem.price * quantity
+
+      if (isInclusive) {
+        const base = basePrice / (1 + itemGst / 100)
+        const tax = basePrice - base
+        calculatedSubtotal += base
+        calculatedCgst += tax / 2
+        calculatedSgst += tax / 2
+      } else {
+        calculatedSubtotal += basePrice
+        const tax = basePrice * (itemGst / 100)
+        calculatedCgst += tax / 2
+        calculatedSgst += tax / 2
+      }
+
       orderItemsToInsert.push({ item_id: itemId, quantity, price: menuItem.price })
     }
+
+    const total = calculatedSubtotal + calculatedCgst + calculatedSgst
 
     // ── 9. Generate daily order number ────────────────────────────────────────
     if (dailyNumberResult.error || dailyNumberResult.data == null) {
@@ -202,7 +225,10 @@ export async function POST(req: NextRequest) {
         table_number:        trimmedTable,
         token,
         daily_order_number:  dailyOrderNumber,
-        total,
+        total:               parseFloat(total.toFixed(2)),
+        subtotal:            parseFloat(calculatedSubtotal.toFixed(2)),
+        cgst_amount:         parseFloat(calculatedCgst.toFixed(2)),
+        sgst_amount:         parseFloat(calculatedSgst.toFixed(2)),
         status:              'pending',
         session_token:       sessionToken,
       })

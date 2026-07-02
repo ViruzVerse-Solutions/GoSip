@@ -6,16 +6,46 @@ import { MdShoppingCart } from 'react-icons/md'
 import { useCart } from '@/lib/context/cart-context'
 import { useLanguage } from '@/lib/context/language-context'
 import { usePathname } from 'next/navigation'
+import { useBranchData } from '@/lib/context/branch-context'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const CURRENCY = '₹'
 
 // ─── CartBar ──────────────────────────────────────────────────────────────────
 function CartBar() {
-  const { totalItems, totalPrice, openCart } = useCart()
+  const { state, totalItems, totalPrice, openCart } = useCart()
   const { t } = useLanguage()
+  const { branch, items } = useBranchData()
   const pathname = usePathname()
   const handleOpen = useCallback(() => openCart(), [openCart])
+
+  let calculatedSubtotal = 0;
+  let calculatedCgst = 0;
+  let calculatedSgst = 0;
+
+  const isInclusive = branch?.is_gst_inclusive ?? false;
+  const branchDefaultGst = branch?.default_gst_rate ?? 5.0;
+
+  state.items.forEach(cartItem => {
+    const menuItem = items.find(i => i.id === cartItem.itemId);
+    const itemGst = menuItem?.gst_rate ?? branchDefaultGst;
+    const basePrice = cartItem.price * cartItem.quantity;
+
+    if (isInclusive) {
+      const base = basePrice / (1 + itemGst / 100);
+      const tax = basePrice - base;
+      calculatedSubtotal += base;
+      calculatedCgst += tax / 2;
+      calculatedSgst += tax / 2;
+    } else {
+      calculatedSubtotal += basePrice;
+      const tax = basePrice * (itemGst / 100);
+      calculatedCgst += tax / 2;
+      calculatedSgst += tax / 2;
+    }
+  });
+
+  const grandTotal = calculatedSubtotal + calculatedCgst + calculatedSgst;
 
   // Hide the CartBar when the user is viewing their orders or order status
   const isOrderPage = pathname?.includes('/orders') || pathname?.includes('/order/')
@@ -44,7 +74,7 @@ function CartBar() {
             {/* Price + item count */}
             <div className="min-w-0">
               <p className="text-xl font-bold text-gray-900 leading-tight tabular-nums">
-                {CURRENCY}{totalPrice?.toLocaleString('en-IN') ?? '0'}
+                {CURRENCY}{grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </p>
               <p className="text-[11px] text-gray-400 leading-tight mt-0.5">
                 {totalItems} {totalItems !== 1 ? t('items') : t('item')} in cart
@@ -55,7 +85,7 @@ function CartBar() {
             <motion.button
               onClick={handleOpen}
               whileTap={{ scale: 0.96 }}
-              aria-label={`View cart — ${totalItems} items, ${CURRENCY}${totalPrice}`}
+              aria-label={`View cart — ${totalItems} items, ${CURRENCY}${grandTotal.toFixed(2)}`}
               className="
                 flex items-center gap-2
                 bg-primary-600 hover:bg-primary-700 active:bg-primary-800
