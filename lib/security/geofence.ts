@@ -59,20 +59,21 @@ export function validateGeofence(
   dbLat?: number | null,
   dbLng?: number | null
 ): GeofenceValidationResult {
+  const GENERIC_ERROR = 'Verification failed. Please ensure location services are enabled and you are inside the cafe.'
+
   // 1. Check client-side mock flag
   if (isMocked) {
     return {
       valid: false,
-      error: 'Developer settings or mock location apps detected. Please disable them to place an order.',
+      error: GENERIC_ERROR,
     }
   }
 
   // 2. Validate GPS accuracy (must be reasonable, under 150 meters)
-  // If accuracy is too low (e.g. 1000m), the client might be spoofing via cellular tower triangulation
   if (accuracy > 150) {
     return {
       valid: false,
-      error: 'Low GPS accuracy. Please move closer to a window or ensure location services are set to High Accuracy.',
+      error: GENERIC_ERROR,
     }
   }
 
@@ -97,7 +98,7 @@ export function validateGeofence(
   if (distance > GEOFENCE_RADIUS_METERS) {
     return {
       valid: false,
-      error: 'You must be physically present at the cafe premises to place orders.',
+      error: GENERIC_ERROR,
     }
   }
 

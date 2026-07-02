@@ -14,6 +14,7 @@ import {
 
 import { useParams } from "next/navigation";
 import { subscribeToOrder, fetchOrder } from "@/lib/services/order.service";
+import { getSecureLocation, GeoCoordinates } from "@/lib/security/geolocation";
 
 // ── Safe Helpers ──────────────────────────────────────────────────────────────
 const generateId = () => {
@@ -71,7 +72,11 @@ interface SessionContextType {
   updateOrderStatus:(orderId: string, status: string) => void;
   /** Remove one order AND clear table session (call on 'collected' status). */
   onOrderCollected: (orderId: string) => void;
+  /** Remove order helper. */
   removeOrder:      (orderId: string) => void;
+  location:         GeoCoordinates | null;
+  locationError:    string | null;
+  refreshLocation:  () => Promise<void>;
 }
 
 // ── Context ───────────────────────────────────────────────────────────────────
@@ -82,6 +87,24 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [tableNumber,  setTableNumber]  = useState<string | null>(null);
   const [activeOrders, setActiveOrders] = useState<ActiveOrder[]>([]);
   const [isMounted,    setIsMounted]    = useState(false);
+  const [location, setLocation]         = useState<GeoCoordinates | null>(null);
+  const [locationError, setLocationError] = useState<string | null>(null);
+
+  const refreshLocation = useCallback(async () => {
+    try {
+      const loc = await getSecureLocation();
+      setLocation(loc);
+      setLocationError(null);
+    } catch (err: any) {
+      setLocationError(err.message || "Failed to retrieve location");
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      refreshLocation();
+    }
+  }, [refreshLocation]);
 
   const params = useParams();
   const branchSlug = params?.branch as string | undefined;
@@ -362,6 +385,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         updateOrderStatus,
         onOrderCollected,
         removeOrder,
+        location,
+        locationError,
+        refreshLocation,
       }}
     >
       {children}
