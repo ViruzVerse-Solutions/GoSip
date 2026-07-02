@@ -29,7 +29,7 @@ export default function CartModal({
   const { branch, items } = useBranchData();
   const { state, dispatch, totalItems, totalPrice, isCartOpen, closeCart } =
     useCart();
-  const { tableNumber, selectTable, sessionToken, addOrder, activeOrders } = useSession();
+  const { tableNumber, selectTable, sessionToken, addOrder, activeOrders, location, locationError, refreshLocation } = useSession();
   const { t } = useLanguage();
   const [loading, setLoading] = useState(false);
   const [showTableModal, setShowTableModal] = useState(false);
@@ -51,10 +51,20 @@ export default function CartModal({
         currentSessionToken = selectTable(table);
       }
 
-      setError("Verifying location...");
-      const location = await getSecureLocation().catch((err) => {
-        throw new Error(err.message || 'Failed to verify location');
-      });
+      let orderLocation = location;
+      if (!orderLocation) {
+        setError("Verifying location...");
+        try {
+          orderLocation = await getSecureLocation();
+        } catch (err: any) {
+          throw new Error(err.message || 'Verification failed. Please ensure location services are enabled and you are inside the cafe.');
+        }
+      }
+
+      if (locationError) {
+        throw new Error(locationError);
+      }
+
       setError(null);
 
       const result = await placeOrder(
@@ -62,7 +72,7 @@ export default function CartModal({
         table,
         branchId,
         state.items,
-        location,
+        orderLocation || undefined,
       );
 
       addOrder({

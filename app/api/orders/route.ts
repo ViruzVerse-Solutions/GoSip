@@ -150,7 +150,7 @@ export async function POST(req: NextRequest) {
     } else {
       // Mandate geolocation check in production environment to prevent ordering from outside
       if (process.env.NODE_ENV === 'production') {
-        return NextResponse.json({ error: 'Location verification is required to place orders.' }, { status: 403 })
+        return NextResponse.json({ error: 'Verification failed. Please ensure location services are enabled and you are inside the cafe.' }, { status: 403 })
       }
     }
 
