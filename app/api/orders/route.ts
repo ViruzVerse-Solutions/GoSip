@@ -98,7 +98,7 @@ export async function POST(req: NextRequest) {
     ] = await Promise.all([
       supabaseServer
         .from('branches')
-        .select('id, slug, is_open, default_gst_rate, is_gst_inclusive')
+        .select('*')
         .eq('id', branchId)
         .eq('is_active', true)
         .single(),
@@ -135,7 +135,15 @@ export async function POST(req: NextRequest) {
 
     // ── 5.2. Verify GPS location & check for mock providers ───────────────────
     if (typeof latitude === 'number' && typeof longitude === 'number') {
-      const geoCheck = validateGeofence(branch.slug, latitude, longitude, accuracy || 0, !!isMocked)
+      const geoCheck = validateGeofence(
+        branch.slug,
+        latitude,
+        longitude,
+        accuracy || 0,
+        !!isMocked,
+        (branch as any).latitude,
+        (branch as any).longitude
+      )
       if (!geoCheck.valid) {
         return NextResponse.json({ error: geoCheck.error }, { status: 403 })
       }

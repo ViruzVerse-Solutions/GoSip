@@ -55,7 +55,9 @@ export function validateGeofence(
   clientLat: number,
   clientLng: number,
   accuracy: number,
-  isMocked: boolean
+  isMocked: boolean,
+  dbLat?: number | null,
+  dbLng?: number | null
 ): GeofenceValidationResult {
   // 1. Check client-side mock flag
   if (isMocked) {
@@ -74,8 +76,11 @@ export function validateGeofence(
     }
   }
 
-  // Find branch coordinates
-  const branchCoords = BRANCH_COORDINATES[branchSlug]
+  // Find branch coordinates: DB first, fallback to static config
+  const branchCoords = (dbLat != null && dbLng != null)
+    ? { lat: dbLat, lng: dbLng }
+    : BRANCH_COORDINATES[branchSlug]
+
   if (!branchCoords) {
     // If coordinates are not set up for the branch, bypass validation gracefully
     return { valid: true }
