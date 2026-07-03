@@ -6,6 +6,7 @@ import { fetchBranchBySlug, fetchMenuByBranch, fetchSignatureItems } from '@/lib
 import { BranchProvider } from '@/lib/context/branch-context'
 import CartBar from '@/components/layout/CartBar'
 import CartModal from '@/components/layout/CartModal'
+import LoadingScreen from '@/components/ui/LoadingScreen'
 
 export const unstable_instant = {
   prefetch: 'runtime',
@@ -25,7 +26,7 @@ export default function BranchLayout({
   params: Promise<{ branch: string }>
 }) {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-gray-50 flex items-center justify-center"><p className="text-gray-400 text-sm">Loading...</p></div>}>
+    <Suspense fallback={<LoadingScreen message="Preparing menu..." />}>
       <BranchLayoutContent params={params}>
         {children}
       </BranchLayoutContent>
