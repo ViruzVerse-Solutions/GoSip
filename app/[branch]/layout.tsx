@@ -6,7 +6,7 @@ import { fetchBranchBySlug, fetchMenuByBranch, fetchSignatureItems } from '@/lib
 import { BranchProvider } from '@/lib/context/branch-context'
 import CartBar from '@/components/layout/CartBar'
 import CartModal from '@/components/layout/CartModal'
-import SkeletonCard from '@/components/ui/SkeletonCard'
+import LoadingScreen from '@/components/ui/LoadingScreen'
 
 export const unstable_instant = {
   prefetch: 'runtime',
@@ -26,7 +26,7 @@ export default function BranchLayout({
   params: Promise<{ branch: string }>
 }) {
   return (
-    <Suspense fallback={<BranchLoadingSkeleton />}>
+    <Suspense fallback={<LoadingScreen message="Loading..." />}>
       <BranchLayoutContent params={params}>
         {children}
       </BranchLayoutContent>
@@ -34,39 +34,7 @@ export default function BranchLayout({
   )
 }
 
-/** Full-page skeleton shown while SSR data is streaming in */
-function BranchLoadingSkeleton() {
-  return (
-    <div className="min-h-screen bg-gray-50 pb-24">
-      {/* Header skeleton */}
-      <div className="h-[200px] skeleton" />
 
-      {/* Search bar skeleton */}
-      <div className="px-4 mt-4">
-        <div className="h-11 rounded-2xl skeleton" />
-      </div>
-
-      {/* Category chips skeleton */}
-      <div className="flex gap-2 px-4 mt-4 overflow-hidden">
-        {Array.from({ length: 5 }).map((_, i) => (
-          <div key={i} className="h-8 w-20 rounded-full skeleton shrink-0" />
-        ))}
-      </div>
-
-      {/* Title row */}
-      <div className="px-4 mt-4 mb-3">
-        <div className="h-6 w-24 rounded-md skeleton" />
-      </div>
-
-      {/* Item grid skeleton */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 px-4">
-        {Array.from({ length: 8 }).map((_, i) => (
-          <SkeletonCard key={i} />
-        ))}
-      </div>
-    </div>
-  )
-}
 
 async function BranchLayoutContent({
   children,

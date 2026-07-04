@@ -20,6 +20,7 @@ import {
 import { fetchOrder, subscribeToOrder } from "@/lib/services/order.service";
 import { useSession } from "@/lib/context/session-context";
 import { useLanguage } from "@/lib/context/language-context";
+import LoadingScreen from "@/components/ui/LoadingScreen";
 
 const ESTIMATE_MS = 5 * 60 * 1000;
 const MONTHS = [
@@ -73,16 +74,7 @@ const formatOrderTime = (iso: string) => {
   };
 };
 
-// ─── Loading Skeleton ─────────────────────────────────────────────────────────
-const LoadingSkeleton = () => (
-  <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-    <div className="w-full max-w-md mx-4 space-y-3">
-      <div className="h-40 rounded-2xl skeleton" />
-      <div className="h-28 rounded-2xl skeleton" />
-      <div className="h-20 rounded-2xl skeleton" />
-    </div>
-  </div>
-);
+
 
 // ─── Step Indicator ───────────────────────────────────────────────────────────
 type StepState = "done" | "active" | "pending" | "cancelled";
@@ -702,9 +694,9 @@ useEffect(() => {
     : { time: "", ampm: "", date: "" };
 
   // ── render guards ─────────────────────────────────────────────────────────
-  if (loading) return <LoadingSkeleton />;
+  if (loading) return <LoadingScreen message="Loading Order..." />;
   if (notFound) return <NotFoundState router={router} branch={branch} />;
-  if (!order) return <LoadingSkeleton />; // fetch resolved but order not yet in state (edge case)
+  if (!order) return <LoadingScreen message="Loading Order..." />; // fetch resolved but order not yet in state (edge case)
 
   const stepStates: [StepState, StepState] = isCancelled
     ? ["done", "cancelled"]
