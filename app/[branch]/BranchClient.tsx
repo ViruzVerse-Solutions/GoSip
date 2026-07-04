@@ -11,6 +11,7 @@ import CategoryChips from '@/components/menu/CategoryChips'
 import HeroBanner from '@/components/ui/HeroBanner'
 import ItemCard from '@/components/menu/ItemCard'
 import VegFilterChip from '@/components/ui/VegFilterChip'
+import SkeletonCard from '@/components/ui/SkeletonCard'
 import { useBranchData } from '@/lib/context/branch-context'
 import { useLanguage } from '@/lib/context/language-context'
 import { MdOutlineRestaurantMenu, MdOutlineStore, MdOutlineSchedule } from 'react-icons/md'
@@ -137,7 +138,12 @@ export default function BranchClient() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 px-4 mt-4 mb-24">
-        {filteredItems.length > 0 ? (
+        {items.length === 0 ? (
+          // Show skeleton cards while branch data populates
+          Array.from({ length: 6 }).map((_, i) => (
+            <SkeletonCard key={i} />
+          ))
+        ) : filteredItems.length > 0 ? (
           filteredItems.map((item) => (
             <ItemCard key={item.id} item={item} branchSlug={branch.slug} />
           ))

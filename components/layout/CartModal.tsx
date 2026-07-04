@@ -43,12 +43,17 @@ export default function CartModal({
     setShowTableModal(false);
 
     try {
-      let currentSessionToken = sessionToken;
-      if (activeSessionToken) {
-        currentSessionToken = await selectTable(table, activeSessionToken);
-      } else if (!tableNumber || !currentSessionToken || table !== tableNumber) {
-        currentSessionToken = await selectTable(table);
-      }
+      // ── Always (re)register the table session with the server ──────────────────
+      // This guarantees the HttpOnly cookie and the React sessionToken in state are
+      // always in sync before the POST /api/orders call, even after:
+      //   - Page refresh (which wipes React state but keeps the old cookie)
+      //   - Serverless cold starts (which wipe in-memory state)
+      //   - Cross-origin redirects after QR scan
+      // Passing the existing sessionToken ensures the SAME token is re-written to
+      // the cookie rather than generating a new one, preserving addon aggregation.
+      const tokenToUse = activeSessionToken || sessionToken;
+      const currentSessionToken = await selectTable(table, tokenToUse ?? undefined);
+
       const result = await placeOrder(
         currentSessionToken,
         table,

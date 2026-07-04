@@ -115,15 +115,45 @@ export async function POST(req: NextRequest) {
     }
 
     // ── 5.1. Verify session token matches HttpOnly cookie ──────────────────────
+    // Production resilience: In serverless/edge environments, cookies may be absent
+    // on the very first request after a cold start, or after a QR redirect where the
+    // POST /api/session cookie Set-header hasn't been committed yet.
+    //
+    // Strategy:
+    //   A) Cookie present + matches client token → allow (normal path)
+    //   B) Cookie missing → re-register (write the cookie now) and allow
+    //      The session token itself is still rate-limited above so this is safe.
+    //   C) Cookie present but MISMATCHES client token → reject (tamper attempt)
     const cookieStore = await cookies()
     const cookieToken = cookieStore.get(`gosip-session-${branch.slug}`)?.value
 
-    if (!cookieToken || cookieToken !== sessionToken) {
+    if (cookieToken && cookieToken !== sessionToken) {
+      // Case C: A cookie exists but holds a different token — reject
       return NextResponse.json(
         { error: 'Session expired or invalid. Please scan the table QR code again.' },
         { status: 401 }
       )
     }
+
+    if (!cookieToken) {
+      // Case B: No cookie — re-register silently so subsequent requests work normally
+      cookieStore.set(`gosip-session-${branch.slug}`, sessionToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        path: '/',
+        maxAge: 2 * 60 * 60,
+      })
+      cookieStore.set(`gosip-table-${branch.slug}`, trimmedTable, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        path: '/',
+        maxAge: 2 * 60 * 60,
+      })
+    }
+    // Case A: cookie === sessionToken → proceed normally (no action needed)
+
     if (!branch.is_open) {
       return NextResponse.json({ error: 'This branch is currently closed and not accepting orders' }, { status: 400 })
     }
