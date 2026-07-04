@@ -83,8 +83,15 @@ export async function GET(
         .eq('branch_id', targetOrder.branch_id)
 
       if (!allOrdersError && allOrders && allOrders.length > 0) {
+        // Prevent merging of 'collected' orders with active ('pending'/'delivered') orders
+        const isTargetCollected = targetOrder.status === 'collected'
+        const cycleOrders = allOrders.filter(o => 
+          isTargetCollected ? o.status === 'collected' : o.status !== 'collected'
+        )
+        const ordersToProcess = cycleOrders.length > 0 ? cycleOrders : allOrders
+
         // Sort orders by created_at ascending to find the main (earliest) order
-        const sortedOrders = [...allOrders].sort(
+        const sortedOrders = [...ordersToProcess].sort(
           (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
         )
         const mainOrder = sortedOrders[0]

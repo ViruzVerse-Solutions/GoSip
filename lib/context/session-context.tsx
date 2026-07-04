@@ -287,6 +287,13 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setTableNumber(null);
       if (branchSlug) {
         safeStorage.removeItem(`gosip-session-${branchSlug}`);
+        fetch('/api/session', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ branchSlug }),
+        }).catch((err) => {
+          console.error('[Session Context] Failed to clear session on server:', err)
+        })
       }
     }
   }, [branchSlug]);
