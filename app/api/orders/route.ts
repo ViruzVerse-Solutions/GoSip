@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
 
     // ── 2. IP-based rate limiting (Layer 1) ───────────────────────────────────
     const clientIp = getClientIp(req)
-    if (isIpRateLimited(clientIp)) {
+    if (await isIpRateLimited(clientIp)) {
       return NextResponse.json(
         { error: 'Too many requests. Please wait a few minutes.' },
         {
@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
     // ── 4. Session-based rate limiting (Layer 2 — per user, not per table) ────
     // A session token is a UUID generated when the user selects their table.
     // It persists 4 hours in localStorage. Limit: 3 orders per session.
-    if (isSessionRateLimited(sessionToken)) {
+    if (await isSessionRateLimited(sessionToken)) {
       return NextResponse.json(
         { error: 'You have reached the order limit for this session. Please start a new session.' },
         { status: 429, headers: { 'Retry-After': '7200' } },
@@ -229,50 +229,86 @@ export async function POST(req: NextRequest) {
     // ── 10. Generate cryptographically-secure order token ─────────────────────
     const token = generateSecureToken()
 
-    // ── 11. Insert order ──────────────────────────────────────────────────────
-    const { data: order, error: orderError } = await supabaseServer
-      .from('orders')
-      .insert({
-        branch_id:           branchId,
-        table_number:        trimmedTable,
-        token,
-        daily_order_number:  dailyOrderNumber,
-        total:               parseFloat(total.toFixed(2)),
-        subtotal:            parseFloat(calculatedSubtotal.toFixed(2)),
-        cgst_amount:         parseFloat(calculatedCgst.toFixed(2)),
-        sgst_amount:         parseFloat(calculatedSgst.toFixed(2)),
-        status:              'pending',
-        session_token:       sessionToken,
-      })
-      .select('id')
-      .single()
+    // ── 11. Insert order and items atomically via RPC (with manual fallback) ──
+    let orderId = ''
+    let useFallback = false
 
-    if (orderError || !order) {
-      console.error('[Orders] Order insert failed:', orderError)
-      return NextResponse.json({ error: 'Failed to create order' }, { status: 500 })
+    try {
+      const { data: resultData, error: rpcError } = await supabaseServer.rpc('place_order_atomic', {
+        p_branch_id:           branchId,
+        p_table_number:        trimmedTable,
+        p_token:               token,
+        p_daily_order_number:  dailyOrderNumber,
+        p_total:               parseFloat(total.toFixed(2)),
+        p_subtotal:            parseFloat(calculatedSubtotal.toFixed(2)),
+        p_cgst:                parseFloat(calculatedCgst.toFixed(2)),
+        p_sgst:                parseFloat(calculatedSgst.toFixed(2)),
+        p_session_token:       sessionToken,
+        p_items:               orderItemsToInsert
+      })
+
+      if (rpcError) {
+        // 42883 is the PG code for undefined_function (meaning the place_order_atomic SQL has not been executed yet)
+        if (rpcError.code === '42883' || rpcError.message.includes('function') || rpcError.message.includes('does not exist')) {
+          useFallback = true
+        } else {
+          console.error('[Orders] Atomic placement failed:', rpcError)
+          return NextResponse.json({ error: 'Failed to place order atomically' }, { status: 500 })
+        }
+      } else {
+        orderId = resultData as string
+      }
+    } catch {
+      useFallback = true
     }
 
-    // ── 12. Insert order items (rollback on failure) ───────────────────────────
-    const { error: itemsError } = await supabaseServer
-      .from('order_items')
-      .insert(
-        orderItemsToInsert.map((oi) => ({
-          order_id: order.id,
-          item_id:  oi.item_id,
-          quantity: oi.quantity,
-          price:    oi.price,
-        })),
-      )
+    if (useFallback) {
+      // ── Fallback: Manual sequential inserts (original behavior) ─────────────
+      const { data: order, error: orderError } = await supabaseServer
+        .from('orders')
+        .insert({
+          branch_id:           branchId,
+          table_number:        trimmedTable,
+          token,
+          daily_order_number:  dailyOrderNumber,
+          total:               parseFloat(total.toFixed(2)),
+          subtotal:            parseFloat(calculatedSubtotal.toFixed(2)),
+          cgst_amount:         parseFloat(calculatedCgst.toFixed(2)),
+          sgst_amount:         parseFloat(calculatedSgst.toFixed(2)),
+          status:              'pending',
+          session_token:       sessionToken,
+        })
+        .select('id')
+        .single()
 
-    if (itemsError) {
-      await supabaseServer.from('orders').delete().eq('id', order.id)
-      console.error('[Orders] Items insert failed — order rolled back:', itemsError)
-      return NextResponse.json({ error: 'Failed to save order items' }, { status: 500 })
+      if (orderError || !order) {
+        console.error('[Orders] Order insert failed:', orderError)
+        return NextResponse.json({ error: 'Failed to create order' }, { status: 500 })
+      }
+
+      const { error: itemsError } = await supabaseServer
+        .from('order_items')
+        .insert(
+          orderItemsToInsert.map((oi) => ({
+            order_id: order.id,
+            item_id:  oi.item_id,
+            quantity: oi.quantity,
+            price:    oi.price,
+          })),
+        )
+
+      if (itemsError) {
+        await supabaseServer.from('orders').delete().eq('id', order.id)
+        console.error('[Orders] Items insert failed — order rolled back:', itemsError)
+        return NextResponse.json({ error: 'Failed to save order items' }, { status: 500 })
+      }
+
+      orderId = order.id
     }
 
     // ── 13. Success ───────────────────────────────────────────────────────────
     const encryptedToken = encryptToken(token)
-    return NextResponse.json({ token: encryptedToken, orderId: order.id, dailyOrderNumber, total })
+    return NextResponse.json({ token: encryptedToken, orderId, dailyOrderNumber, total })
 
   } catch (err) {
     console.error('[Orders] Unexpected error:', err)

@@ -26,13 +26,13 @@ export async function GET(req: Request) {
 // Set the HttpOnly session token and table selection cookies
 export async function POST(req: Request) {
   try {
-    const { table, branchSlug } = await req.json()
+    const { table, branchSlug, sessionToken } = await req.json()
 
     if (!table || !branchSlug) {
       return NextResponse.json({ error: 'Missing table or branchSlug' }, { status: 400 })
     }
 
-    const token = crypto.randomUUID()
+    const token = sessionToken || crypto.randomUUID()
     const cookieStore = await cookies()
 
     // 1. Secure HttpOnly session cookie (unreadable by client JavaScript)
@@ -46,7 +46,7 @@ export async function POST(req: Request) {
 
     // 2. Table number cookie (so client knows which table is active)
     cookieStore.set(`gosip-table-${branchSlug}`, table, {
-      httpOnly: false, // client JS can read this for display
+      httpOnly: true, // secure HttpOnly cookie (unreadable by client JS)
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
       path: '/',

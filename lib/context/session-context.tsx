@@ -62,7 +62,7 @@ interface SessionContextType {
   sessionToken:     string | null;
   tableNumber:      string | null;
   activeOrders:     ActiveOrder[];
-  selectTable:      (table: string, existingToken?: string) => string;
+  selectTable:      (table: string, existingToken?: string) => Promise<string>;
   /** Clear the table identity (token + tableNumber) — called after payment collected. */
   clearTableSession: () => void;
   /** Full nuclear clear — clears table identity AND all active orders. */
@@ -162,18 +162,20 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   // ── Actions ───────────────────────────────────────────────────────────────
 
   /** Select a table — registers selection with backend (which sets the secure cookie). */
-  const selectTable = (table: string, existingToken?: string) => {
+  const selectTable = async (table: string, existingToken?: string): Promise<string> => {
     const token = existingToken || generateId()
     setSessionToken(token)
     setTableNumber(table)
     if (branchSlug) {
-      fetch('/api/session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ table, branchSlug }),
-      }).catch((err) => {
+      try {
+        await fetch('/api/session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ table, branchSlug, sessionToken: token }),
+        })
+      } catch (err) {
         console.error('[Session Context] Failed to register session on server:', err)
-      })
+      }
     }
     return token
   };

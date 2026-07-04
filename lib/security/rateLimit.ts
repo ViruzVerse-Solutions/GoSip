@@ -17,6 +17,12 @@ interface RateLimitEntry {
   resetAt: number   // unix ms — when this window resets
 }
 
+interface LocalCacheEntry {
+  allowed: boolean
+  expiresAt: number
+  count: number
+}
+
 // ── Constants ─────────────────────────────────────────────────────────────────
 const IP_WINDOW_MS     = 10 * 60 * 1000   // 10 minutes
 const IP_MAX_REQUESTS  = 5                 // max order attempts per IP per window
@@ -24,22 +30,74 @@ const IP_MAX_REQUESTS  = 5                 // max order attempts per IP per wind
 const SESSION_WINDOW_MS    = 2 * 60 * 60 * 1000  // 2 hours
 const SESSION_MAX_ORDERS   = 3                    // max orders per session token
 
-// ── In-memory stores ──────────────────────────────────────────────────────────
-// These Maps persist within a serverless instance and reset on cold start.
-// For multi-region production replace with Upstash Redis:
-//   import { Redis } from '@upstash/redis'
+const LOCAL_CACHE_WINDOW_MS = 10 * 1000          // 10 seconds local cache TTL
+const LOCAL_BLOCK_WINDOW_MS = 60 * 1000          // 60 seconds local block TTL
+
+// ── Stores ──────────────────────────────────────────────────────────
 const ipStore      = new Map<string, RateLimitEntry>()
 const sessionStore = new Map<string, RateLimitEntry>()
 
+const localIpCache      = new Map<string, LocalCacheEntry>()
+const localSessionCache = new Map<string, LocalCacheEntry>()
+
 // ── Layer 1: IP Rate Limit ────────────────────────────────────────────────────
 /** Returns true if this IP should be blocked. */
-export function isIpRateLimited(ip: string): boolean {
+export async function isIpRateLimited(ip: string): Promise<boolean> {
   // Bypass IP rate limiting in development to prevent local testing/verification blocks
   if (process.env.NODE_ENV === 'development') {
     return false
   }
 
-  const now   = Date.now()
+  const now = Date.now()
+  const localEntry = localIpCache.get(ip)
+
+  // 1. Check local fast-path in-memory cache
+  if (localEntry && now < localEntry.expiresAt) {
+    localEntry.count += 1
+    // If they burst more than 3 requests within the 10-second window, block immediately in-memory
+    if (localEntry.count > 3) {
+      return true
+    }
+    // If they are cached as allowed, allow immediately without calling Redis
+    if (localEntry.allowed) {
+      return false
+    }
+  }
+
+  // 2. Query Upstash Redis (if configured)
+  const url = process.env.UPSTASH_REDIS_REST_URL
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN
+
+  if (url && token) {
+    try {
+      const key = `ratelimit:ip:${ip}`
+      const res = await fetch(`${url}/pipeline`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify([
+          ['INCR', key],
+          ['EXPIRE', key, '600'] // 10 minutes (600s)
+        ])
+      })
+      const data = await res.json()
+      if (Array.isArray(data) && data[0]?.result) {
+        const count = data[0].result
+        const isLimited = count > IP_MAX_REQUESTS
+
+        // Update local cache
+        localIpCache.set(ip, {
+          allowed: !isLimited,
+          expiresAt: now + (isLimited ? LOCAL_BLOCK_WINDOW_MS : LOCAL_CACHE_WINDOW_MS),
+          count: 1
+        })
+        return isLimited
+      }
+    } catch (err) {
+      console.error('[Rate Limit] Redis IP check failed, falling back to memory:', err)
+    }
+  }
+
+  // 3. Fallback to in-memory Map
   const entry = ipStore.get(ip)
 
   if (!entry || now >= entry.resetAt) {
@@ -57,8 +115,57 @@ export function isIpRateLimited(ip: string): boolean {
  * A session token is created once when the user selects their table (uuidv4).
  * It persists for 2 hours in localStorage, so this limit = 3 orders per visit.
  */
-export function isSessionRateLimited(sessionToken: string): boolean {
-  const now   = Date.now()
+export async function isSessionRateLimited(sessionToken: string): Promise<boolean> {
+  const now = Date.now()
+  const localEntry = localSessionCache.get(sessionToken)
+
+  // 1. Check local fast-path in-memory cache
+  if (localEntry && now < localEntry.expiresAt) {
+    localEntry.count += 1
+    // If they burst more than 2 order attempts within the 10-second window, block immediately in-memory
+    if (localEntry.count > 2) {
+      return true
+    }
+    // If cached as allowed, allow immediately without calling Redis
+    if (localEntry.allowed) {
+      return false
+    }
+  }
+
+  // 2. Query Upstash Redis (if configured)
+  const url = process.env.UPSTASH_REDIS_REST_URL
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN
+
+  if (url && token) {
+    try {
+      const key = `ratelimit:session:${sessionToken}`
+      const res = await fetch(`${url}/pipeline`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify([
+          ['INCR', key],
+          ['EXPIRE', key, '7200'] // 2 hours (7200s)
+        ])
+      })
+      const data = await res.json()
+      if (Array.isArray(data) && data[0]?.result) {
+        const count = data[0].result
+        const isLimited = count > SESSION_MAX_ORDERS
+
+        // Update local cache
+        localSessionCache.set(sessionToken, {
+          allowed: !isLimited,
+          expiresAt: now + (isLimited ? LOCAL_BLOCK_WINDOW_MS : LOCAL_CACHE_WINDOW_MS),
+          count: 1
+        })
+        return isLimited
+      }
+    } catch (err) {
+      console.error('[Rate Limit] Redis Session check failed, falling back to memory:', err)
+    }
+  }
+
+  // 3. Fallback to in-memory Map
   const entry = sessionStore.get(sessionToken)
 
   if (!entry || now >= entry.resetAt) {
@@ -70,11 +177,28 @@ export function isSessionRateLimited(sessionToken: string): boolean {
   return entry.count > SESSION_MAX_ORDERS
 }
 
+// ── Session counter reset ─────────────────────────────────────────────────────
 /**
  * Reset the session counter — called when a session is cleared (e.g. on payment collected).
  * This allows the table to start a fresh dining session with a new session token.
  */
-export function resetSessionLimit(sessionToken: string): void {
+export async function resetSessionLimit(sessionToken: string): Promise<void> {
+  const url = process.env.UPSTASH_REDIS_REST_URL
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN
+
+  localSessionCache.delete(sessionToken)
+
+  if (url && token) {
+    try {
+      const key = `ratelimit:session:${sessionToken}`
+      await fetch(`${url}/del/${key}`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` }
+      })
+    } catch (err) {
+      console.error('[Rate Limit] Redis delete failed:', err)
+    }
+  }
   sessionStore.delete(sessionToken)
 }
 

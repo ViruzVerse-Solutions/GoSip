@@ -45,9 +45,9 @@ export default function CartModal({
     try {
       let currentSessionToken = sessionToken;
       if (activeSessionToken) {
-        currentSessionToken = selectTable(table, activeSessionToken);
+        currentSessionToken = await selectTable(table, activeSessionToken);
       } else if (!tableNumber || !currentSessionToken || table !== tableNumber) {
-        currentSessionToken = selectTable(table);
+        currentSessionToken = await selectTable(table);
       }
       const result = await placeOrder(
         currentSessionToken,

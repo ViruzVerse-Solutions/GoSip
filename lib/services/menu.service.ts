@@ -18,7 +18,7 @@ function resolveStorageUrl(path?: string | null, bucket?: string): string | unde
   if (!path) return undefined
 
   const storageIndex = path.indexOf('/storage/v1/object/public/')
-  if (storageIndex !== -1) {
+  if (storageIndex !== -1 && SUPABASE_URL) {
     return `${SUPABASE_URL}${path.substring(storageIndex)}`
   }
 
@@ -111,7 +111,7 @@ export const fetchMenuByBranch = async (branchId: string): Promise<{
   const [categoriesResult, itemsResult] = await Promise.all([
     supabaseServer
       .from("categories")
-      .select("id, branch_id, name, image_url, sort_order")
+      .select("id, branch_id, name, image_url, sort_order, is_visible")
       .eq("branch_id", branchId)
       .eq("is_visible", true)
       .order("sort_order"),
