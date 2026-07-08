@@ -75,7 +75,7 @@ export async function GET(
 
       for (const [tableNum, orders] of ordersByTable.entries()) {
         const isOccupiedByOthers = orders.some(
-          (order) => order.status === 'pending' && (!order.session_token || order.session_token !== sessionToken)
+          (order) => ['pending', 'delivered'].includes(order.status) && (!order.session_token || order.session_token !== sessionToken)
         )
         if (isOccupiedByOthers) {
           occupiedTables.add(tableNum)

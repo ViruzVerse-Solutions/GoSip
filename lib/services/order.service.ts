@@ -12,6 +12,7 @@ export async function placeOrder(
   tableNumber: string,
   branchId: string,
   items: { itemId: string; quantity: number }[],
+  notes?: string,
 ): Promise<PlaceOrderResult> {
   // Only send what the server needs — strip any extra fields (name, price, image_url)
   // The server re-validates all prices from the DB; client-provided values are ignored.
@@ -19,7 +20,7 @@ export async function placeOrder(
   const res = await fetch('/api/orders', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ sessionToken, tableNumber, branchId, items: trimmedItems }),
+    body: JSON.stringify({ sessionToken, tableNumber, branchId, items: trimmedItems, notes }),
   })
   const json = await res.json()
   if (!res.ok) throw new Error(json.error || `Order failed (${res.status})`)
