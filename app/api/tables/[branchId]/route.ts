@@ -75,14 +75,14 @@ export async function GET(
 
       for (const [tableNum, orders] of ordersByTable.entries()) {
         const isOccupiedByOthers = orders.some(
-          (order) => ['pending', 'delivered'].includes(order.status) && (!order.session_token || order.session_token !== sessionToken)
+          (order) => ['pending'].includes(order.status) && (!order.session_token || order.session_token !== sessionToken)
         )
         if (isOccupiedByOthers) {
           occupiedTables.add(tableNum)
         }
 
-        // Capture the active session token for this table
-        const activeSession = orders.find((o) => o.session_token)?.session_token
+        // Capture the active session token for this table only if it's currently occupying the table
+        const activeSession = orders.find((o) => ['pending'].includes(o.status) && o.session_token)?.session_token
         if (activeSession) {
           tableActiveSessions.set(tableNum, activeSession)
         }

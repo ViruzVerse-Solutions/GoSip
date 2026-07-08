@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { randomBytes } from 'crypto'
 import { supabaseServer } from '@/lib/supabase/server'
-import { isIpRateLimited, isSessionRateLimited, getClientIp } from '@/lib/security/rateLimit'
+import { isIpRateLimited, getClientIp } from '@/lib/security/rateLimit'
 import { validateOrderBody } from '@/lib/security/sanitize'
 import { encryptToken } from '@/lib/security/crypto'
 
@@ -73,25 +73,16 @@ export async function POST(req: NextRequest) {
       notes?:       string
     }
 
-    // ── 4. Session-based rate limiting (Layer 2 — per user, not per table) ────
-    // A session token is a UUID generated when the user selects their table.
-    // It persists 4 hours in localStorage. Limit: 3 orders per session.
-    if (await isSessionRateLimited(sessionToken)) {
-      return NextResponse.json(
-        { error: 'You have reached the order limit for this session. Please start a new session.' },
-        { status: 429, headers: { 'Retry-After': '7200' } },
-      )
-    }
-
     const trimmedTable = tableNumber.trim()
     const today        = getIstDate()
     const itemIds      = items.map((i) => i.itemId)
     const orderNotes   = notes?.trim()
 
-    // ── 5 + 6. Verify branch + table in ONE parallel round-trip ───────────────
+    // ── 5 + 6. Verify branch + table + session limit in ONE parallel round-trip ───────────────
     const [
       { data: branch, error: branchError },
       { data: tableRow, error: tableError },
+      { data: activeSessionOrders, error: sessionOrdersError }
     ] = await Promise.all([
       supabaseServer
         .from('branches')
@@ -119,7 +110,20 @@ export async function POST(req: NextRequest) {
         .eq('table_number', tableNumber.trim())
         .eq('is_active', true)
         .single(),
+
+      supabaseServer
+        .from('orders')
+        .select('id')
+        .eq('session_token', sessionToken)
+        .in('status', ['pending', 'delivered'])
     ])
+
+    if (activeSessionOrders && activeSessionOrders.length >= 3) {
+      return NextResponse.json(
+        { error: 'You have reached the order limit for this session. Please wait for your current orders to be completed.' },
+        { status: 429 }
+      )
+    }
 
     if (branchError || !branch) {
       return NextResponse.json({ error: 'Invalid or inactive branch' }, { status: 400 })
@@ -198,7 +202,7 @@ export async function POST(req: NextRequest) {
         .select('id, session_token, total, status')
       .eq('branch_id', branchId)
       .eq('table_number', trimmedTable)
-      .in('status', ['pending', 'delivered'])
+      .in('status', ['pending'])
       .gte('created_at', twoHoursAgo)
 
     if (checkOccupiedError) {
@@ -207,9 +211,9 @@ export async function POST(req: NextRequest) {
     }
 
     if (existingActiveOrders && existingActiveOrders.length > 0) {
-      // Block if there is a pending or delivered order from another session
+      // Block if there is a pending order from another session
       const hasOtherSessionPendingOrder = existingActiveOrders.some(
-        (order) => ['pending', 'delivered'].includes(order.status) && (!order.session_token || order.session_token !== sessionToken)
+        (order) => ['pending'].includes(order.status) && (!order.session_token || order.session_token !== sessionToken)
       )
       if (hasOtherSessionPendingOrder) {
         return NextResponse.json({ error: 'This table is occupied. Please wait for the previous order to be served.' }, { status: 409 })

@@ -15,8 +15,8 @@ export async function GET(req: Request) {
   const token = cookieStore.get(`gosip-session-${branchSlug}`)?.value
   const table = cookieStore.get(`gosip-table-${branchSlug}`)?.value
 
-  if (token && table) {
-    return NextResponse.json({ active: true, sessionToken: token, table })
+  if (token) {
+    return NextResponse.json({ active: true, sessionToken: token, table: table || null })
   }
 
   return NextResponse.json({ active: false })
@@ -64,15 +64,19 @@ export async function POST(req: Request) {
 // Clear the session and table cookies
 export async function DELETE(req: Request) {
   try {
-    const { branchSlug } = await req.json()
+    const { branchSlug, clearTableOnly } = await req.json()
 
     if (!branchSlug) {
       return NextResponse.json({ error: 'Missing branchSlug' }, { status: 400 })
     }
 
     const cookieStore = await cookies()
-    cookieStore.delete(`gosip-session-${branchSlug}`)
-    cookieStore.delete(`gosip-table-${branchSlug}`)
+    if (clearTableOnly) {
+      cookieStore.delete(`gosip-table-${branchSlug}`)
+    } else {
+      cookieStore.delete(`gosip-session-${branchSlug}`)
+      cookieStore.delete(`gosip-table-${branchSlug}`)
+    }
 
     return NextResponse.json({ success: true })
   } catch (err) {
