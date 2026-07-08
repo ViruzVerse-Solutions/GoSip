@@ -21,6 +21,7 @@ export interface OrderRequestBody {
   tableNumber: string
   branchId: string
   items: { itemId: string; quantity: number }[]
+  notes?: string
 }
 
 export interface ValidationResult {
@@ -37,7 +38,7 @@ export function validateOrderBody(body: unknown): ValidationResult {
     return { valid: false, error: 'Invalid request body' }
   }
 
-  const { sessionToken, tableNumber, branchId, items } = body as Record<string, unknown>
+  const { sessionToken, tableNumber, branchId, items, notes } = body as Record<string, unknown>
 
   // ── sessionToken ────────────────────────────────────────────────────────────
   if (typeof sessionToken !== 'string' || !SESSION_TOKEN_RE.test(sessionToken)) {
@@ -52,6 +53,11 @@ export function validateOrderBody(body: unknown): ValidationResult {
   // ── branchId ────────────────────────────────────────────────────────────────
   if (typeof branchId !== 'string' || !UUID_RE.test(branchId)) {
     return { valid: false, error: 'Invalid branch ID' }
+  }
+
+  // ── notes ───────────────────────────────────────────────────────────────────
+  if (notes !== undefined && (typeof notes !== 'string' || notes.length > 500)) {
+    return { valid: false, error: 'Invalid or too long notes' }
   }
 
   // ── items ────────────────────────────────────────────────────────────────────

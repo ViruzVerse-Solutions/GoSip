@@ -59,6 +59,7 @@ export default function CartModal({
         table,
         branchId,
         state.items,
+        state.notes,
       );
 
       addOrder({
@@ -256,6 +257,21 @@ export default function CartModal({
 
             {totalItems > 0 && (
               <div className="border-t border-gray-100 px-5 py-4">
+                {branch?.features?.includes('order_notes') && (
+                  <div className="mb-4">
+                    <label htmlFor="order-notes" className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                      {t('orderNotes') || 'Order Notes (Optional)'}
+                    </label>
+                    <textarea
+                      id="order-notes"
+                      rows={2}
+                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all resize-none"
+                      placeholder={t('orderNotesPlaceholder') || 'Add cooking instructions or preferences...'}
+                      value={state.notes || ''}
+                      onChange={(e) => dispatch({ type: 'SET_NOTES', payload: e.target.value })}
+                    />
+                  </div>
+                )}
                 <div className="mb-4 space-y-1.5">
                   {totalTax > 0 && !isInclusive && (
                     <>

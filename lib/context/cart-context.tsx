@@ -13,6 +13,7 @@ interface CartItemData {
 
 interface CartState {
   items: CartItemData[]
+  notes: string
 }
 
 export type AddItemPayload = Omit<CartItemData, 'quantity'>
@@ -22,7 +23,8 @@ type CartAction =
   | { type: 'REMOVE_ITEM'; payload: string }
   | { type: 'UPDATE_QUANTITY'; payload: { itemId: string; quantity: number } }
   | { type: 'CLEAR_CART' }
-  | { type: 'RESTORE_CART'; payload: CartItemData[] }
+  | { type: 'RESTORE_CART'; payload: { items: CartItemData[], notes: string } }
+  | { type: 'SET_NOTES'; payload: string }
 
 function cartReducer(state: CartState, action: CartAction): CartState {
   switch (action.type) {
@@ -42,9 +44,11 @@ function cartReducer(state: CartState, action: CartAction): CartState {
       return { ...state, items: state.items.map(i => i.itemId === action.payload.itemId ? { ...i, quantity: action.payload.quantity } : i) }
     }
     case 'CLEAR_CART':
-      return { ...state, items: [] }
+      return { ...state, items: [], notes: '' }
     case 'RESTORE_CART':
-      return { ...state, items: action.payload }
+      return { ...state, items: action.payload.items, notes: action.payload.notes }
+    case 'SET_NOTES':
+      return { ...state, notes: action.payload }
     default:
       return state
   }
@@ -63,7 +67,7 @@ interface CartContextType {
 const CartContext = createContext<CartContextType | null>(null)
 
 export function CartProvider({ children }: { children: ReactNode }) {
-  const [state, dispatch] = useReducer(cartReducer, { items: [] })
+  const [state, dispatch] = useReducer(cartReducer, { items: [], notes: '' })
   const [isCartOpen, setIsCartOpen] = useState(false)
   const [isMounted, setIsMounted] = useState(false)
 
@@ -82,7 +86,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
     if (saved) {
       try {
-        const items = JSON.parse(saved)
+        const parsed = JSON.parse(saved)
+        const isArray = Array.isArray(parsed)
+        const items = isArray ? parsed : (parsed.items || [])
+        const notes = isArray ? '' : (parsed.notes || '')
+        
         if (items.length > 0) {
           // Check if it's the valid new schema. It must have price and itemId.
           const isValidSchema = items.every((i: any) => i.itemId !== undefined && i.price !== undefined)
@@ -91,7 +99,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
             try { localStorage.removeItem(storageKey) } catch (e) {}
           } else {
             // Restore cart in a single dispatch
-            dispatch({ type: 'RESTORE_CART', payload: items })
+            dispatch({ type: 'RESTORE_CART', payload: { items, notes } })
           }
         } else {
           dispatch({ type: 'CLEAR_CART' })
@@ -111,17 +119,17 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setIsMounted(true)
   }, [branchSlug])
 
-  // Save to localStorage when items change, but only after mount
+  // Save to localStorage when items or notes change, but only after mount
   useEffect(() => {
     if (isMounted && branchSlug) {
       const storageKey = `gosip-cart-${branchSlug}`
       try {
-        localStorage.setItem(storageKey, JSON.stringify(state.items))
+        localStorage.setItem(storageKey, JSON.stringify(state))
       } catch (e) {
         console.warn('[GoSip] Failed to save cart to localStorage', e)
       }
     }
-  }, [state.items, isMounted, branchSlug])
+  }, [state, isMounted, branchSlug])
 
   const totalItems = state.items.reduce((sum: number, i: { quantity: number }) => sum + i.quantity, 0)
   const totalPrice = state.items.reduce((sum: number, i) => sum + i.price * i.quantity, 0)

@@ -65,11 +65,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: validation.error }, { status: 400 })
     }
 
-    const { sessionToken, tableNumber, branchId, items } = body as {
+    const { sessionToken, tableNumber, branchId, items, notes } = body as {
       sessionToken: string
       tableNumber:  string
       branchId:     string
       items:        { itemId: string; quantity: number }[]
+      notes?:       string
     }
 
     // ── 4. Session-based rate limiting (Layer 2 — per user, not per table) ────
@@ -85,6 +86,7 @@ export async function POST(req: NextRequest) {
     const trimmedTable = tableNumber.trim()
     const today        = getIstDate()
     const itemIds      = items.map((i) => i.itemId)
+    const orderNotes   = notes?.trim()
 
     // ── 5 + 6. Verify branch + table in ONE parallel round-trip ───────────────
     const [
@@ -93,7 +95,19 @@ export async function POST(req: NextRequest) {
     ] = await Promise.all([
       supabaseServer
         .from('branches')
-        .select('id, slug, is_open, default_gst_rate, is_gst_inclusive')
+        .select(`
+          id, 
+          slug, 
+          is_open, 
+          default_gst_rate, 
+          is_gst_inclusive,
+          branch_subscriptions (
+            status,
+            plans (
+              features
+            )
+          )
+        `)
         .eq('id', branchId)
         .eq('is_active', true)
         .single(),
@@ -112,6 +126,24 @@ export async function POST(req: NextRequest) {
     }
     if (tableError || !tableRow) {
       return NextResponse.json({ error: 'Invalid or inactive table selection' }, { status: 400 })
+    }
+
+    // ── Check if order notes are allowed for this branch ──────────────────────
+    let finalNotes = null;
+    let features: string[] = [];
+    const sub = (Array.isArray(branch.branch_subscriptions) ? branch.branch_subscriptions[0] : branch.branch_subscriptions) as any;
+    if (sub) {
+      const activeStatuses = ['active', 'trial', 'grace'];
+      if (activeStatuses.includes(sub.status) && sub.plans) {
+        const plans = Array.isArray(sub.plans) ? sub.plans[0] : sub.plans;
+        if (plans?.features) {
+          features = plans.features;
+        }
+      }
+    }
+
+    if (orderNotes && features.includes('order_notes')) {
+      finalNotes = orderNotes;
     }
 
     // ── 5.1. Verify session token matches HttpOnly cookie ──────────────────────
@@ -175,9 +207,9 @@ export async function POST(req: NextRequest) {
     }
 
     if (existingActiveOrders && existingActiveOrders.length > 0) {
-      // Block only if there is a pending (preparing) order from another session
+      // Block if there is a pending or delivered order from another session
       const hasOtherSessionPendingOrder = existingActiveOrders.some(
-        (order) => order.status === 'pending' && (!order.session_token || order.session_token !== sessionToken)
+        (order) => ['pending', 'delivered'].includes(order.status) && (!order.session_token || order.session_token !== sessionToken)
       )
       if (hasOtherSessionPendingOrder) {
         return NextResponse.json({ error: 'This table is occupied. Please wait for the previous order to be served.' }, { status: 409 })
@@ -274,6 +306,7 @@ export async function POST(req: NextRequest) {
         p_cgst:                parseFloat(calculatedCgst.toFixed(2)),
         p_sgst:                parseFloat(calculatedSgst.toFixed(2)),
         p_session_token:       sessionToken,
+        p_notes:               finalNotes,
         p_items:               orderItemsToInsert
       })
 
@@ -307,6 +340,7 @@ export async function POST(req: NextRequest) {
           sgst_amount:         parseFloat(calculatedSgst.toFixed(2)),
           status:              'pending',
           session_token:       sessionToken,
+          notes:               finalNotes,
         })
         .select('id')
         .single()
