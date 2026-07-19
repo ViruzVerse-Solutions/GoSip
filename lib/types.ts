@@ -10,6 +10,7 @@ export interface Branch {
   features?: string[]
   default_gst_rate?: number
   is_gst_inclusive?: boolean
+  type?: 'outlet' | 'cart'
 }
 
 export interface Category {

@@ -20,13 +20,21 @@ export async function GET(
     // Verify the branch is active before serving table data
     const { data: branch, error: branchError } = await supabaseServer
       .from('branches')
-      .select('id, slug')
+      .select('id, slug, type')
       .eq('id', branchId)
       .eq('is_active', true)
       .single()
 
     if (branchError || !branch) {
       return NextResponse.json({ error: 'Branch not found' }, { status: 404 })
+    }
+
+    if (branch.type === 'cart') {
+      return NextResponse.json({ tables: [], isSessionActive: false }, {
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        },
+      })
     }
 
     const cookieStore = await cookies()

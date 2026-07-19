@@ -95,9 +95,13 @@ export default function CartModal({
 
   const onProceedClick = () => {
     setError(null);
-    // Always show table selector so user confirms/selects table
-    // This covers: new session, expired session, and between orders
-    setShowTableModal(true);
+    if (branch?.type === 'cart') {
+      handlePlaceOrder('Counter');
+    } else {
+      // Always show table selector so user confirms/selects table
+      // This covers: new session, expired session, and between orders
+      setShowTableModal(true);
+    }
   };
 
   const handleClearAll = () => {
@@ -300,7 +304,7 @@ export default function CartModal({
                   </div>
                 )}
 
-                {tableNumber ? (
+                {tableNumber && branch?.type !== 'cart' ? (
                   <div className="space-y-2 mt-2">
                     <button
                       onClick={() => handlePlaceOrder(tableNumber)}

@@ -92,6 +92,7 @@ export async function POST(req: NextRequest) {
           is_open, 
           default_gst_rate, 
           is_gst_inclusive,
+          type,
           branch_subscriptions (
             status,
             plans (
@@ -128,8 +129,12 @@ export async function POST(req: NextRequest) {
     if (branchError || !branch) {
       return NextResponse.json({ error: 'Invalid or inactive branch' }, { status: 400 })
     }
-    if (tableError || !tableRow) {
-      return NextResponse.json({ error: 'Invalid or inactive table selection' }, { status: 400 })
+    
+    // For outlet branches, validate the table. For carts, skip table validation.
+    if (branch.type !== 'cart') {
+      if (tableError || !tableRow) {
+        return NextResponse.json({ error: 'Invalid or inactive table selection' }, { status: 400 })
+      }
     }
 
     // ── Check if order notes are allowed for this branch ──────────────────────
@@ -197,26 +202,29 @@ export async function POST(req: NextRequest) {
     const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
 
     // ── 6.1. Verify table is not occupied by another active order ─────────────
-    const { data: existingActiveOrders, error: checkOccupiedError } = await supabaseServer
-      .from('orders')
-        .select('id, session_token, total, status')
-      .eq('branch_id', branchId)
-      .eq('table_number', trimmedTable)
-      .in('status', ['pending'])
-      .gte('created_at', twoHoursAgo)
+    // Skip this check for carts
+    if (branch.type !== 'cart') {
+      const { data: existingActiveOrders, error: checkOccupiedError } = await supabaseServer
+        .from('orders')
+          .select('id, session_token, total, status')
+        .eq('branch_id', branchId)
+        .eq('table_number', trimmedTable)
+        .in('status', ['pending'])
+        .gte('created_at', twoHoursAgo)
 
-    if (checkOccupiedError) {
-      console.error('[Orders] Table check failed:', checkOccupiedError)
-      return NextResponse.json({ error: 'Failed to verify table status' }, { status: 500 })
-    }
+      if (checkOccupiedError) {
+        console.error('[Orders] Table check failed:', checkOccupiedError)
+        return NextResponse.json({ error: 'Failed to verify table status' }, { status: 500 })
+      }
 
-    if (existingActiveOrders && existingActiveOrders.length > 0) {
-      // Block if there is a pending order from another session
-      const hasOtherSessionPendingOrder = existingActiveOrders.some(
-        (order) => ['pending'].includes(order.status) && (!order.session_token || order.session_token !== sessionToken)
-      )
-      if (hasOtherSessionPendingOrder) {
-        return NextResponse.json({ error: 'This table is occupied. Please wait for the previous order to be served.' }, { status: 409 })
+      if (existingActiveOrders && existingActiveOrders.length > 0) {
+        // Block if there is a pending order from another session
+        const hasOtherSessionPendingOrder = existingActiveOrders.some(
+          (order) => ['pending'].includes(order.status) && (!order.session_token || order.session_token !== sessionToken)
+        )
+        if (hasOtherSessionPendingOrder) {
+          return NextResponse.json({ error: 'This table is occupied. Please wait for the previous order to be served.' }, { status: 409 })
+        }
       }
     }
 
