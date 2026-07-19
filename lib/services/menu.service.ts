@@ -50,6 +50,7 @@ export const fetchBranchBySlug = async (slug: string): Promise<Branch | null> =>
       is_open,
       default_gst_rate,
       is_gst_inclusive,
+      type,
       branch_subscriptions (
         status,
         plans (
@@ -94,6 +95,7 @@ export const fetchBranchBySlug = async (slug: string): Promise<Branch | null> =>
     is_open: data.is_open ?? true,
     default_gst_rate: data.default_gst_rate,
     is_gst_inclusive: data.is_gst_inclusive,
+    type: data.type,
     features
   } as Branch;
 };
