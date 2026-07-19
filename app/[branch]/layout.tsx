@@ -7,6 +7,7 @@ import { BranchProvider } from '@/lib/context/branch-context'
 import CartBar from '@/components/layout/CartBar'
 import CartModal from '@/components/layout/CartModal'
 import LoadingScreen from '@/components/ui/LoadingScreen'
+import OrderReadyAlertModal from '@/components/order/OrderReadyAlertModal'
 
 export const unstable_instant = {
   prefetch: 'runtime',
@@ -69,6 +70,7 @@ async function BranchLayoutContent({
         <>
           <CartBar />
           <CartModal branchSlug={branch.slug} branchId={branch.id} />
+          <OrderReadyAlertModal />
         </>
       )}
     </BranchProvider>

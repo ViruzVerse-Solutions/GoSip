@@ -8,6 +8,7 @@ import { placeOrder } from "@/lib/services/order.service";
 import { MenuItem } from "@/lib/types";
 import QuantityControl from "../ui/QuantityControl";
 import TableSelectionModal from "../order/TableSelectionModal";
+import CartOrderTypeModal from "../order/CartOrderTypeModal";
 import {
   MdClose,
   MdDeleteOutline,
@@ -32,6 +33,7 @@ export default function CartModal({
   const { t } = useLanguage();
   const [loading, setLoading] = useState(false);
   const [showTableModal, setShowTableModal] = useState(false);
+  const [showCartTypeModal, setShowCartTypeModal] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const router = useRouter();
@@ -41,6 +43,7 @@ export default function CartModal({
     setLoading(true);
     setError(null);
     setShowTableModal(false);
+    setShowCartTypeModal(false);
 
     try {
       // ── Always (re)register the table session with the server ──────────────────
@@ -96,7 +99,7 @@ export default function CartModal({
   const onProceedClick = () => {
     setError(null);
     if (branch?.type === 'cart') {
-      handlePlaceOrder('Counter');
+      setShowCartTypeModal(true);
     } else {
       // Always show table selector so user confirms/selects table
       // This covers: new session, expired session, and between orders
@@ -340,12 +343,21 @@ export default function CartModal({
           </motion.div>
 
           {/* Table selection modal */}
-          {branchId && (
+          {branchId && branch?.type !== 'cart' && (
             <TableSelectionModal
               branchId={branchId}
               isOpen={showTableModal}
               onClose={() => setShowTableModal(false)}
               onSelect={(table: string, activeSessionToken?: string | null) => handlePlaceOrder(table, activeSessionToken)}
+            />
+          )}
+
+          {/* Cart Order Type Modal */}
+          {branch?.type === 'cart' && (
+            <CartOrderTypeModal
+              isOpen={showCartTypeModal}
+              onClose={() => setShowCartTypeModal(false)}
+              onSelect={(type: 'Dining' | 'Takeaway') => handlePlaceOrder(type)}
             />
           )}
         </>
