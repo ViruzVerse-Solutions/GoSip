@@ -932,7 +932,9 @@ useEffect(() => {
             </span>
             <div className="flex gap-1.5">
               {[
-                `Table ${order.table_number}`,
+                ['takeaway', 'dining', 'counter'].includes(String(order.table_number).toLowerCase())
+                  ? order.table_number
+                  : `Table ${order.table_number}`,
                 `#${order.daily_order_number}`,
               ].map((tag) => (
                 <span

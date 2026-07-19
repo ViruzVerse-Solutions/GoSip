@@ -297,7 +297,9 @@ export default function OrdersHistoryPage() {
                     </span>
                     <span className="flex items-center gap-1.5 text-gray-500 text-xs font-medium tracking-wide uppercase">
                       <MdTableBar className="w-4 h-4 text-primary-500" />
-                      {t('table')} {order.tableNumber}
+                      {['takeaway', 'dining', 'counter'].includes(String(order.tableNumber).toLowerCase())
+                        ? order.tableNumber
+                        : `${t('table')} ${order.tableNumber}`}
                     </span>
                   </div>
                   <div className="w-10 h-10 rounded-full bg-primary-50 flex items-center justify-center text-primary-600 group-hover:bg-primary-600 group-hover:text-white transition-colors">
